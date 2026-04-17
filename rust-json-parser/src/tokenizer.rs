@@ -2,11 +2,26 @@
 // Hint: You need variants for:
 // LeftBrace, RightBrace, LeftBracket, RightBracket, Comma, Colon
 // String(String), Number(f64), Boolean(bool), Null
+#[derive(Debug, PartialEq)]
+pub enum Token {
+    LeftBrace,
+    RightBrace,
+    LeftBracket,
+    RightBracket,
+    Comma,
+    Colon,
+    String(String),
+    Number(f64),
+    Boolean(bool),
+    Null,
+}
 
 // TODO: Implement your tokenize function here
-// pub fn tokenize(input: &str) -> Vec<Token> {
-//     // Your code goes here
-// }
+pub fn tokenize(input: &str) -> Vec<Token> {
+    let mut tokens: Vec<Token> = Vec::new();
+    let mut iter = input.chars().peekable();
+    tokens
+}
 
 #[cfg(test)]
 mod tests {
