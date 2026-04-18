@@ -20,6 +20,18 @@ pub enum Token {
 pub fn tokenize(input: &str) -> Vec<Token> {
     let mut tokens: Vec<Token> = Vec::new();
     let mut iter = input.chars().peekable();
+    while let Some(c) = iter.next() {
+        let token = match c {
+            '{' => Token::LeftBrace,
+            '}' => Token::RightBrace,
+            '[' => Token::LeftBracket,
+            ']' => Token::RightBracket,
+            ',' => Token::Comma,
+            ':' => Token::Colon,
+            _ => continue,
+        };
+        tokens.push(token);
+    }
     tokens
 }
 
