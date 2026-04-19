@@ -11,7 +11,7 @@ pub enum Token {
     Comma,
     Colon,
     String(String),
-    Number(f64),
+    Number(f64), // https://www.json.org/json-en.html
     Boolean(bool),
     Null,
 }
@@ -37,9 +37,10 @@ pub fn tokenize(input: &str) -> Vec<Token> {
                     "true" => Token::Boolean(true),
                     "false" => Token::Boolean(false),
                     "null" => Token::Null,
-                    other => panic!("Invalid JSON! Unknown keyword: {other}")
+                    other => panic!("Invalid JSON! Unknown keyword: {other}"),
                 }
             }
+            ch if ch.is_ascii_digit() || ch == '-' => continue,
             _ => continue,
         };
         tokens.push(token);
