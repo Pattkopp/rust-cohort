@@ -28,6 +28,18 @@ pub fn tokenize(input: &str) -> Vec<Token> {
             ']' => Token::RightBracket,
             ',' => Token::Comma,
             ':' => Token::Colon,
+            ch if ch.is_ascii_alphabetic() => {
+                let mut word = String::from(ch);
+                while let Some(next_ch) = iter.next_if(|&next_ch| next_ch.is_ascii_alphabetic()) {
+                    word.push(next_ch);
+                }
+                match word.as_str() {
+                    "true" => Token::Boolean(true),
+                    "false" => Token::Boolean(false),
+                    "null" => Token::Null,
+                    other => panic!("Invalid JSON! Unknown keyword: {other}")
+                }
+            }
             _ => continue,
         };
         tokens.push(token);
