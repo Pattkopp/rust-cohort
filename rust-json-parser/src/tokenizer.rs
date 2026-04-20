@@ -59,7 +59,7 @@ pub fn tokenize(input: &str) -> Vec<Token> {
                         '"' => break,
                         ch => content.push(ch),
                     }
-                };
+                }
                 Token::String(content)
             }
             _ => continue,
