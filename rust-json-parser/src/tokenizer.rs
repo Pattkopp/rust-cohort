@@ -51,6 +51,17 @@ pub fn tokenize(input: &str) -> Vec<Token> {
                     panic!("{}: could not parse string {} to f64", err, num_str)
                 }))
             }
+            '"' => {
+                let mut content = String::new();
+                loop {
+                    let ch = iter.next().expect("unterminated string");
+                    match ch {
+                        '"' => break,
+                        ch => content.push(ch),
+                    }
+                };
+                Token::String(content)
+            }
             _ => continue,
         };
         tokens.push(token);
@@ -87,7 +98,6 @@ mod tests {
     #[test]
     fn test_tokenize_string() {
         let tokens = tokenize(r#""hello world""#);
-
         assert_eq!(tokens.len(), 1);
         assert_eq!(tokens[0], Token::String("hello world".to_string()));
     }
