@@ -40,7 +40,17 @@ pub fn tokenize(input: &str) -> Vec<Token> {
                     other => panic!("Invalid JSON! Unknown keyword: {other}"),
                 }
             }
-            ch if ch.is_ascii_digit() || ch == '-' => continue,
+            ch if ch.is_ascii_digit() || ch == '-' => {
+                let mut num_str = String::from(ch);
+                while let Some(next_ch) = iter
+                    .next_if(|&next_ch| matches!(next_ch, '0'..='9' | '.' | 'E' | 'e' | '+' | '-'))
+                {
+                    num_str.push(next_ch);
+                }
+                Token::Number(num_str.parse::<f64>().unwrap_or_else(|err| {
+                    panic!("{}: could not parse string {} to f64", err, num_str)
+                }))
+            }
             _ => continue,
         };
         tokens.push(token);
