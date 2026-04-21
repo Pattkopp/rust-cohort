@@ -20,7 +20,7 @@ pub enum Token {
 pub fn tokenize(input: &str) -> Vec<Token> {
     let mut tokens: Vec<Token> = Vec::new();
     let mut iter = input.chars().peekable();
-    while let Some(c) = iter.next() {
+    'main_loop: while let Some(c) = iter.next() {
         let token = match c {
             '{' => Token::LeftBrace,
             '}' => Token::RightBrace,
@@ -37,7 +37,12 @@ pub fn tokenize(input: &str) -> Vec<Token> {
                     "true" => Token::Boolean(true),
                     "false" => Token::Boolean(false),
                     "null" => Token::Null,
-                    other => panic!("Invalid JSON! Unknown keyword: {other}"),
+                    // TODO: Once `tokenize` returns `Result<Vec<Token>, TokenizeError>`, replace
+                    // this log-and-skip with `Err(TokenizeError::UnknownKeyword(other.into()))`.
+                    other => {
+                        eprintln!("Invalid JSON! Unknown keyword: {}", other);
+                        continue;
+                    }
                 }
             }
             ch if ch.is_ascii_digit() || ch == '-' => {
@@ -47,22 +52,41 @@ pub fn tokenize(input: &str) -> Vec<Token> {
                 {
                     num_str.push(next_ch);
                 }
-                Token::Number(num_str.parse::<f64>().unwrap_or_else(|err| {
-                    panic!("{}: could not parse string {} to f64", err, num_str)
-                }))
+                // TODO: Once `tokenize` returns `Result<Vec<Token>, TokenizeError>`, replace
+                // this log-and-skip with `Err(TokenizeError::InvalidNumber(...))` carrying
+                // the bad string and the parse error.
+                match num_str.parse::<f64>() {
+                    Ok(num_parsed) => Token::Number(num_parsed),
+                    Err(err) => {
+                        eprintln!("could not parse number {} as f64: {}", num_str, err);
+                        continue;
+                    }
+                }
             }
             '"' => {
                 let mut content = String::new();
                 loop {
-                    let ch = iter.next().expect("unterminated string");
-                    match ch {
-                        '"' => break,
-                        ch => content.push(ch),
+                    // TODO: Once `tokenize` returns `Result<Vec<Token>, TokenizeError>`, replace
+                    // this log-and-skip with `Err(TokenizeError::InvalidString(...))`.
+                    match iter.next() {
+                        Some(ch) => match ch {
+                            '"' => break,
+                            ch => content.push(ch),
+                        },
+                        None => {
+                            eprintln!("unterminated string");
+                            break 'main_loop; // EOF inside a string: abandon the partial content and stop tokenizing.
+                        }
                     }
                 }
                 Token::String(content)
             }
-            _ => continue,
+            // TODO: Once `tokenize` returns `Result<Vec<Token>, TokenizeError>`, replace
+            // this log-and-skip with `Err(TokenizeError::UnexpectedChar(ch))`.
+            ch => {
+                eprintln!("character skipped: {}", ch);
+                continue;
+            }
         };
         tokens.push(token);
     }
