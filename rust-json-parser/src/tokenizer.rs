@@ -2,7 +2,7 @@
 // Hint: You need variants for:
 // LeftBrace, RightBrace, LeftBracket, RightBracket, Comma, Colon
 // String(String), Number(f64), Boolean(bool), Null
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Token {
     LeftBrace,
     RightBrace,
