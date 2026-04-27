@@ -1,5 +1,5 @@
 // Week 2: Custom error type for JSON parsing
-use std::fmt::{self, Formatter};
+use std::fmt;
 
 // TODO: Define your JsonError enum here
 // Hint: You need variants for:
@@ -31,7 +31,29 @@ pub enum JsonError {
 // }
 impl fmt::Display for JsonError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        
+        match self {
+            JsonError::UnexpectedToken {
+                expected,
+                found,
+                position,
+            } => {
+                write!(
+                    f,
+                    "unexpected token at position {}: expected {}, found {}",
+                    position, expected, found
+                )
+            }
+            JsonError::UnexpectedEndOfInput { expected, position } => {
+                write!(
+                    f,
+                    "unexpected end of input at position {}: expected {}",
+                    position, expected
+                )
+            }
+            JsonError::InvalidNumber { value, position } => {
+                write!(f, "invalid number {} at position {}", value, position)
+            }
+        }
     }
 }
 

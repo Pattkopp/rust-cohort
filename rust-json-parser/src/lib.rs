@@ -1,2 +1,2 @@
-pub mod tokenizer;
 mod error;
+pub mod tokenizer;
