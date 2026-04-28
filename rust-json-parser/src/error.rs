@@ -59,6 +59,7 @@ impl fmt::Display for JsonError {
 
 // TODO: Implement Error trait
 // impl std::error::Error for JsonError {}
+impl std::error::Error for JsonError {}
 
 // Copy these tests as-is:
 #[cfg(test)]
