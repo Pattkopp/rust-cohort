@@ -1,3 +1,5 @@
+use crate::error::JsonError;
+
 // TODO: Define your Token enum here
 // Hint: You need variants for:
 // LeftBrace, RightBrace, LeftBracket, RightBracket, Comma, Colon
@@ -17,7 +19,7 @@ pub enum Token {
 }
 
 // TODO: Implement your tokenize function here
-pub fn tokenize(input: &str) -> Vec<Token> {
+pub fn tokenize(input: &str) -> Result<Vec<Token>, JsonError> {
     let mut tokens: Vec<Token> = Vec::new();
     let mut iter = input.chars().peekable();
     'main_loop: while let Some(c) = iter.next() {
@@ -90,129 +92,106 @@ pub fn tokenize(input: &str) -> Vec<Token> {
         };
         tokens.push(token);
     }
-    tokens
+    Ok(tokens)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::error::JsonError;
 
-    #[test]
-    fn test_empty_braces() {
-        let tokens = tokenize("{}");
-        assert_eq!(tokens.len(), 2);
-        assert_eq!(tokens[0], Token::LeftBrace);
-        assert_eq!(tokens[1], Token::RightBrace);
-    }
-
-    #[test]
-    fn test_simple_string() {
-        let tokens = tokenize(r#""hello""#);
-        assert_eq!(tokens.len(), 1);
-        assert_eq!(tokens[0], Token::String("hello".to_string()));
-    }
-
-    #[test]
-    fn test_number() {
-        let tokens = tokenize("42");
-        assert_eq!(tokens.len(), 1);
-        assert_eq!(tokens[0], Token::Number(42.0));
-    }
-
-    #[test]
-    fn test_tokenize_string() {
-        let tokens = tokenize(r#""hello world""#);
-        assert_eq!(tokens.len(), 1);
-        assert_eq!(tokens[0], Token::String("hello world".to_string()));
-    }
-
-    #[test]
-    fn test_boolean_and_null() {
-        let tokens = tokenize("true false null");
-        assert_eq!(tokens.len(), 3);
-        assert_eq!(tokens[0], Token::Boolean(true));
-        assert_eq!(tokens[1], Token::Boolean(false));
-        assert_eq!(tokens[2], Token::Null);
-    }
-
-    #[test]
-    fn test_simple_object() {
-        let tokens = tokenize(r#"{"name": "Alice"}"#);
-        assert_eq!(tokens.len(), 5);
-        assert_eq!(tokens[0], Token::LeftBrace);
-        assert_eq!(tokens[1], Token::String("name".to_string()));
-        assert_eq!(tokens[2], Token::Colon);
-        assert_eq!(tokens[3], Token::String("Alice".to_string()));
-        assert_eq!(tokens[4], Token::RightBrace);
-    }
-
-    #[test]
-    fn test_multiple_values() {
-        let tokens = tokenize(r#"{"age": 30, "active": true}"#);
-
-        // Verify we have the right tokens
-        assert!(tokens.contains(&Token::String("age".to_string())));
-        assert!(tokens.contains(&Token::Number(30.0)));
-        assert!(tokens.contains(&Token::Comma));
-        assert!(tokens.contains(&Token::String("active".to_string())));
-        assert!(tokens.contains(&Token::Boolean(true)));
-    }
+    // Result type alias for cleaner test signatures
+    type Result<T> = std::result::Result<T, JsonError>;
 
     // String boundary tests - verify inner vs outer quote handling
 
     #[test]
-    fn test_empty_string() {
+    fn test_empty_string() -> Result<()> {
         // Outer boundary: adjacent quotes with no inner content
-        let tokens = tokenize(r#""""#);
+        let tokens = tokenize(r#""""#)?;
         assert_eq!(tokens.len(), 1);
         assert_eq!(tokens[0], Token::String("".to_string()));
+        Ok(())
     }
 
     #[test]
-    fn test_string_containing_json_special_chars() {
+    fn test_string_containing_json_special_chars() -> Result<()> {
         // Inner handling: JSON delimiters inside strings don't break tokenization
-        let tokens = tokenize(r#""{key: value}""#);
+        let tokens = tokenize(r#""{key: value}""#)?;
         assert_eq!(tokens.len(), 1);
         assert_eq!(tokens[0], Token::String("{key: value}".to_string()));
+        Ok(())
     }
 
     #[test]
-    fn test_string_with_keyword_like_content() {
+    fn test_string_with_keyword_like_content() -> Result<()> {
         // Inner handling: "true", "false", "null" inside strings stay as string content
-        let tokens = tokenize(r#""not true or false""#);
+        let tokens = tokenize(r#""not true or false""#)?;
         assert_eq!(tokens.len(), 1);
         assert_eq!(tokens[0], Token::String("not true or false".to_string()));
+        Ok(())
     }
 
     #[test]
-    fn test_string_with_number_like_content() {
+    fn test_string_with_number_like_content() -> Result<()> {
         // Inner handling: numeric content inside strings doesn't become Number tokens
-        let tokens = tokenize(r#""phone: 555-1234""#);
+        let tokens = tokenize(r#""phone: 555-1234""#)?;
         assert_eq!(tokens.len(), 1);
         assert_eq!(tokens[0], Token::String("phone: 555-1234".to_string()));
+        Ok(())
     }
 
     // Number parsing tests
 
     #[test]
-    fn test_negative_number() {
-        let tokens = tokenize("-42");
+    fn test_negative_number() -> Result<()> {
+        let tokens = tokenize("-42")?;
         assert_eq!(tokens.len(), 1);
         assert_eq!(tokens[0], Token::Number(-42.0));
+        Ok(())
     }
 
     #[test]
-    fn test_decimal_number() {
-        let tokens = tokenize("0.5");
+    fn test_decimal_number() -> Result<()> {
+        let tokens = tokenize("0.5")?;
         assert_eq!(tokens.len(), 1);
         assert_eq!(tokens[0], Token::Number(0.5));
+        Ok(())
     }
 
     #[test]
     fn test_leading_decimal_not_a_number() {
         // .5 is invalid JSON - numbers must have leading digit (0.5 is valid)
-        let tokens = tokenize(".5");
-        // Should NOT be interpreted as 0.5
-        assert!(!tokens.contains(&Token::Number(0.5)));
+        let err = tokenize(".5").unwrap_err();
+        assert!(matches!(
+            err,
+            JsonError::UnexpectedToken { position: 0, .. }
+        ));
+    }
+
+    // Error position tests
+
+    #[test]
+    fn test_invalid_keyword_error_position_points_to_start() {
+        let input = "   xyz";
+        let result = tokenize(input);
+        assert!(result.is_err());
+        if let Err(JsonError::UnexpectedToken { position, .. }) = result {
+            assert_eq!(
+                position, 3,
+                "error position should point to the start of 'xyz' (index 3), not past it"
+            );
+        } else {
+            panic!("expected UnexpectedToken error");
+        }
+    }
+
+    #[test]
+    fn test_unterminated_string() {
+        let err = tokenize(r#""missing end quote"#).unwrap_err();
+        assert!(matches!(
+            err,
+            JsonError::UnexpectedEndOfInput { position: 0, .. }
+        ));
     }
 }

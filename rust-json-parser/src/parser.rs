@@ -13,7 +13,7 @@ pub fn parse_json(input: &str) -> Result<JsonValue> {
     // 1. Call tokenize(input)?  (? propagates errors)
     let tokens = tokenize(input); // TODO: Add `?` after tokenizer returns Result in Module 4.
     // 2. Check if tokens is empty
-    if tokens.is_empty() {
+    if tokens?.is_empty() {
         return Err(JsonError::UnexpectedEndOfInput {
             expected: "JSON value".to_string(),
             position: 0,
