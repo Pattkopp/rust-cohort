@@ -7,14 +7,40 @@
 // - Boolean(bool)
 // - Number(f64)
 // - String(String)
+#[derive(Debug, Clone, PartialEq)]
+pub enum JsonValue {
+    Null,
+    Boolean(bool),
+    Number(f64),
+    String(String),
+}
 
 // TODO: Implement helper methods
-// impl JsonValue {
-//     pub fn is_null(&self) -> bool { }
-//     pub fn as_str(&self) -> Option<&str> { }
-//     pub fn as_f64(&self) -> Option<f64> { }
-//     pub fn as_bool(&self) -> Option<bool> { }
-// }
+impl JsonValue {
+    pub fn is_null(&self) -> bool {
+        matches!(self, JsonValue::Null)
+    }
+    pub fn as_str(&self) -> Option<&str> {
+        if let JsonValue::String(s) = self {
+            Some(s.as_str())
+        } else {
+            None
+        }
+    }
+    pub fn as_f64(&self) -> Option<f64> {
+        if let JsonValue::Number(f) = self {
+            Some(*f)
+        } else {
+            None
+        }
+    }
+    pub fn as_bool(&self) -> Option<bool> {
+        match self {
+            JsonValue::Boolean(b) => Some(*b),
+            _ => None,
+        }
+    }
+}
 
 // Copy these tests as-is:
 #[cfg(test)]
