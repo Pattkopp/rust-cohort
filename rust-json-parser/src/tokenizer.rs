@@ -1,9 +1,5 @@
 use crate::error::JsonError;
 
-// TODO: Define your Token enum here
-// Hint: You need variants for:
-// LeftBrace, RightBrace, LeftBracket, RightBracket, Comma, Colon
-// String(String), Number(f64), Boolean(bool), Null
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
     LeftBrace,
@@ -18,76 +14,80 @@ pub enum Token {
     Null,
 }
 
-// TODO: Implement your tokenize function here
 pub fn tokenize(input: &str) -> Result<Vec<Token>, JsonError> {
     let mut tokens: Vec<Token> = Vec::new();
-    let mut iter = input.chars().peekable();
-    'main_loop: while let Some(c) = iter.next() {
+    let mut iter = input.char_indices().peekable();
+    while let Some((pos, c)) = iter.next() {
         let token = match c {
+            ' ' | '\t' | '\n' | '\r' => continue,
             '{' => Token::LeftBrace,
             '}' => Token::RightBrace,
             '[' => Token::LeftBracket,
             ']' => Token::RightBracket,
             ',' => Token::Comma,
             ':' => Token::Colon,
-            ch if ch.is_ascii_alphabetic() => {
-                let mut word = String::from(ch);
-                while let Some(next_ch) = iter.next_if(|&next_ch| next_ch.is_ascii_alphabetic()) {
+            c if c.is_ascii_alphabetic() => {
+                let mut word = String::from(c);
+                while let Some((_, next_ch)) =
+                    iter.next_if(|&(_, next_ch)| next_ch.is_ascii_alphabetic())
+                {
                     word.push(next_ch);
                 }
                 match word.as_str() {
                     "true" => Token::Boolean(true),
                     "false" => Token::Boolean(false),
                     "null" => Token::Null,
-                    // TODO: Once `tokenize` returns `Result<Vec<Token>, TokenizeError>`, replace
-                    // this log-and-skip with `Err(TokenizeError::UnknownKeyword(other.into()))`.
-                    other => {
-                        eprintln!("Invalid JSON! Unknown keyword: {}", other);
-                        continue;
+                    _ => {
+                        return Err(JsonError::UnexpectedToken {
+                            expected: "valid keyword".to_string(),
+                            found: word,
+                            position: pos,
+                        });
                     }
                 }
             }
-            ch if ch.is_ascii_digit() || ch == '-' => {
-                let mut num_str = String::from(ch);
-                while let Some(next_ch) = iter
-                    .next_if(|&next_ch| matches!(next_ch, '0'..='9' | '.' | 'E' | 'e' | '+' | '-'))
-                {
+            c if c.is_ascii_digit() || c == '-' => {
+                let mut num_str = String::from(c);
+                while let Some((_, next_ch)) = iter.next_if(|&(_, next_ch)| {
+                    matches!(next_ch, '0'..='9' | '.' | 'E' | 'e' | '+' | '-')
+                }) {
                     num_str.push(next_ch);
                 }
-                // TODO: Once `tokenize` returns `Result<Vec<Token>, TokenizeError>`, replace
-                // this log-and-skip with `Err(TokenizeError::InvalidNumber(...))` carrying
-                // the bad string and the parse error.
                 match num_str.parse::<f64>() {
                     Ok(num_parsed) => Token::Number(num_parsed),
-                    Err(err) => {
-                        eprintln!("could not parse number {} as f64: {}", num_str, err);
-                        continue;
+                    Err(_) => {
+                        return Err(JsonError::InvalidNumber {
+                            value: num_str,
+                            position: pos,
+                        });
                     }
                 }
             }
             '"' => {
                 let mut content = String::new();
                 loop {
-                    // TODO: Once `tokenize` returns `Result<Vec<Token>, TokenizeError>`, replace
-                    // this log-and-skip with `Err(TokenizeError::InvalidString(...))`.
                     match iter.next() {
-                        Some(ch) => match ch {
+                        Some((_, c)) => match c {
                             '"' => break,
-                            ch => content.push(ch),
+                            c => content.push(c),
                         },
                         None => {
-                            eprintln!("unterminated string");
-                            break 'main_loop; // EOF inside a string: abandon the partial content and stop tokenizing.
+                            return Err(JsonError::UnexpectedEndOfInput {
+                                expected: "closing quote".to_string(),
+                                position: pos,
+                            });
                         }
                     }
                 }
                 Token::String(content)
             }
-            // TODO: Once `tokenize` returns `Result<Vec<Token>, TokenizeError>`, replace
-            // this log-and-skip with `Err(TokenizeError::UnexpectedChar(ch))`.
+
             ch => {
-                eprintln!("character skipped: {}", ch);
-                continue;
+                return Err(JsonError::UnexpectedToken {
+                    expected: "valid JSON token".to_string(),
+                    found: ch.to_string(),
+                    position: pos,
+                });
             }
         };
         tokens.push(token);
