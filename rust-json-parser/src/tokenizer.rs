@@ -80,10 +80,10 @@ pub fn tokenize(input: &str) -> Result<Vec<Token>, JsonError> {
                 Token::String(content)
             }
 
-            ch => {
+            _ => {
                 return Err(JsonError::UnexpectedToken {
                     expected: "valid JSON token".to_string(),
-                    found: ch.to_string(),
+                    found: c.to_string(),
                     position: pos,
                 });
             }
