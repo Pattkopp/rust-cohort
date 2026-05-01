@@ -1,9 +1,9 @@
-use rust_json_parser::tokenizer::tokenize;
+use rust_json_parser::parse_json;
 
 fn main() {
-    let input = r#"{"name": "Alice", "age": 30}"#;
-    let tokens = tokenize(input);
+    let input = r#""missing end quote"#;
+    let result = parse_json(input);
     println!("Input JSON: {input}");
-    println!("\nTokens:");
-    println!("{:?}", tokens);
+    println!("\nResult:");
+    println!("{:?}", result);
 }
