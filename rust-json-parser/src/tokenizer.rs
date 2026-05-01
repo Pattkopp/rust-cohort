@@ -67,10 +67,8 @@ pub fn tokenize(input: &str) -> Result<Vec<Token>, JsonError> {
                 let mut content = String::new();
                 loop {
                     match iter.next() {
-                        Some((_, c)) => match c {
-                            '"' => break,
-                            c => content.push(c),
-                        },
+                        Some((_, '"')) => break,
+                        Some((_, c)) => content.push(c),
                         None => {
                             return Err(JsonError::UnexpectedEndOfInput {
                                 expected: "closing quote".to_string(),
