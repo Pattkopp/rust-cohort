@@ -98,9 +98,12 @@ mod tests {
         };
 
         // All variants should be Debug-printable
-        format!("{:?}", token_error);
-        format!("{:?}", eof_error);
-        format!("{:?}", num_error);
+        assert!(
+            format!("{:?}", token_error)
+                .contains("expected: \"number\", found: \"x\", position: 3")
+        );
+        assert!(format!("{:?}", eof_error).contains("closing quote"));
+        assert!(format!("{:?}", num_error).contains("12.34.56"));
     }
 
     // Week 3 Tests
