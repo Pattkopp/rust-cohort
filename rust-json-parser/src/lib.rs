@@ -1,7 +1,3 @@
-// Week 2: JSON Parser with Error Handling
-
-// Declare modules - tell Rust which files contain your code
-// `mod error;` looks for src/error.rs
 mod error;
 mod parser;
 mod tokenizer;
@@ -19,7 +15,6 @@ pub use value::JsonValue;
 // Users can write Result<JsonValue> instead of std::result::Result<JsonValue, JsonError>
 pub type Result<T> = std::result::Result<T, JsonError>;
 
-// Copy these tests as-is:
 #[cfg(test)]
 mod tests {
     use super::*;
