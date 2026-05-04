@@ -14,6 +14,11 @@ pub enum Token {
     Null,
 }
 
+pub struct Tokenizer {
+    input: Vec<char>,
+    current: usize,
+}
+
 pub fn tokenize(input: &str) -> Result<Vec<Token>, JsonError> {
     let mut tokens: Vec<Token> = Vec::new();
     let mut iter = input.char_indices().peekable();
