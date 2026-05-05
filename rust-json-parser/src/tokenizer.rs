@@ -83,6 +83,29 @@ impl Tokenizer {
         loop {
             match self.advance() {
                 Some('"') => break,
+                Some('\\') => {
+                    if let Some(ch) = self.advance() {
+                        match ch {
+                            '"' | '\\' | '/' => content.push(ch),
+                            'b' => content.push('\u{0008}'),
+                            'f' => content.push('\u{000C}'),
+                            'n' => content.push('\n'),
+                            'r' => content.push('\r'),
+                            't' => content.push('\t'),
+                            ch => {
+                                return Err(JsonError::InvalidEscape {
+                                    char: ch,
+                                    position: token_start,
+                                });
+                            }
+                        }
+                    } else {
+                        return Err(JsonError::UnexpectedEndOfInput {
+                            expected: "valid escape char".to_string(),
+                            position: token_start,
+                        });
+                    }
+                }
                 Some(ch) => content.push(ch),
                 None => {
                     return Err(JsonError::UnexpectedEndOfInput {
