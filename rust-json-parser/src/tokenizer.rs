@@ -114,11 +114,11 @@ impl Tokenizer {
                 ch if ch.is_ascii_digit() || ch == '-' => self.read_digit(ch),
                 '"' => self.read_string(),
                 _ => {
-                    return Err(JsonError::UnexpectedToken {
+                    Err(JsonError::UnexpectedToken {
                         expected: "valid JSON token".to_string(),
                         found: ch.to_string(),
                         position: self.current - 1,
-                    });
+                    })
                 }
             };
             tokens.push(token?);
