@@ -1,8 +1,8 @@
-use rust_json_parser::parse_json;
+use rust_json_parser::JsonParser;
 
 fn main() {
     let input = r#""The quick brown fox jumps over the lazy dog""#;
-    let result = parse_json(input);
+    let result = JsonParser::new(input);
     println!("Input JSON: {input}");
     println!("\nResult:");
     match result {
