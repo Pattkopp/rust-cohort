@@ -1,5 +1,5 @@
 use crate::error::JsonError;
-use crate::tokenizer::{Token, tokenize};
+use crate::tokenizer::{Token, Tokenizer};
 use crate::value::JsonValue;
 
 // Result type alias for convenience
@@ -7,7 +7,7 @@ type Result<T> = std::result::Result<T, JsonError>;
 
 pub fn parse_json(input: &str) -> Result<JsonValue> {
     // 1. Call tokenize(input)?  (? propagates errors)
-    let tokens = tokenize(input)?; // TODO: Add `?` after tokenizer returns Result in Module 4.
+    let tokens = Tokenizer::new(input).tokenize()?; // TODO: Add `?` after tokenizer returns Result in Module 4.
     // 2. Check if tokens is empty
     if tokens.is_empty() {
         return Err(JsonError::UnexpectedEndOfInput {
@@ -97,7 +97,7 @@ mod tests {
         let result = parse_json("@invalid@");
 
         match result {
-            Err(JsonError::UnexpectedToken { .. }) => {}, // Expected
+            Err(JsonError::UnexpectedToken { .. }) => {} // Expected
             _ => panic!("Expected UnexpectedToken error"),
         }
     }
