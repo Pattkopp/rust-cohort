@@ -5,6 +5,18 @@ use crate::value::JsonValue;
 // Result type alias for convenience
 type Result<T> = std::result::Result<T, JsonError>;
 
+pub struct JsonParser {
+    tokens: Vec<Token>,
+    current: usize,
+}
+
+impl JsonParser {
+    pub fn new(input: &str) -> Result<Self> {
+        let tokens = Tokenizer::new(input).tokenize()?;
+        Ok(Self { tokens, current: 0 })
+    }
+}
+
 pub fn parse_json(input: &str) -> Result<JsonValue> {
     // 1. Call tokenize(input)?  (? propagates errors)
     let tokens = Tokenizer::new(input).tokenize()?; // TODO: Add `?` after tokenizer returns Result in Module 4.
