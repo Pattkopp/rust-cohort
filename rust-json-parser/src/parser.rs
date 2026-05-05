@@ -5,6 +5,7 @@ use crate::value::JsonValue;
 // Result type alias for convenience
 type Result<T> = std::result::Result<T, JsonError>;
 
+#[derive(Debug, PartialEq)]
 pub struct JsonParser {
     tokens: Vec<Token>,
     current: usize,

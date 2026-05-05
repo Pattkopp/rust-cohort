@@ -7,7 +7,7 @@ mod value;
 // Without this: users write `use my_lib::parser::parse_json`
 // With this: users write `use my_lib::parse_json` (cleaner!)
 pub use error::JsonError;
-pub use parser::parse_json;
+pub use parser::JsonParser;
 pub use tokenizer::{Token, Tokenizer};
 pub use value::JsonValue;
 
@@ -22,11 +22,11 @@ mod tests {
     #[test]
     fn test_integration() -> Result<()> {
         // Test the full parsing pipeline
-        assert_eq!(parse_json("42")?, JsonValue::Number(42.0));
-        assert_eq!(parse_json("true")?, JsonValue::Boolean(true));
-        assert_eq!(parse_json("null")?, JsonValue::Null);
+        assert_eq!(JsonParser::new("42")?.parse()?, JsonValue::Number(42.0));
+        assert_eq!(JsonParser::new("true")?.parse()?, JsonValue::Boolean(true));
+        assert_eq!(JsonParser::new("null")?.parse()?, JsonValue::Null);
         assert_eq!(
-            parse_json(r#""hello""#)?,
+            JsonParser::new(r#""hello""#)?.parse()?,
             JsonValue::String("hello".to_string())
         );
         Ok(())
@@ -35,7 +35,7 @@ mod tests {
     #[test]
     fn test_error_propagation() {
         // Test that errors propagate properly with correct details
-        let result = parse_json("@invalid@");
+        let result = JsonParser::new("@invalid@");
         assert!(result.is_err());
 
         // Validate error details through pattern matching
