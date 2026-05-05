@@ -54,13 +54,11 @@ impl Tokenizer {
             "true" => Ok(Token::Boolean(true)),
             "false" => Ok(Token::Boolean(false)),
             "null" => Ok(Token::Null),
-            _ => {
-                return Err(JsonError::UnexpectedToken {
-                    expected: "valid keyword".to_string(),
-                    found: word,
-                    position: start_index,
-                });
-            }
+            _ => Err(JsonError::UnexpectedToken {
+                expected: "valid keyword".to_string(),
+                found: word,
+                position: start_index,
+            }),
         }
     }
 
@@ -76,12 +74,10 @@ impl Tokenizer {
         }
         match num_str.parse::<f64>() {
             Ok(num_parsed) => Ok(Token::Number(num_parsed)),
-            Err(_) => {
-                return Err(JsonError::InvalidNumber {
-                    value: num_str,
-                    position: start_index,
-                });
-            }
+            Err(_) => Err(JsonError::InvalidNumber {
+                value: num_str,
+                position: start_index,
+            }),
         }
     }
 
@@ -104,29 +100,26 @@ impl Tokenizer {
     }
 
     pub fn tokenize(&mut self) -> Result<Vec<Token>, JsonError> {
-        let mut tokens: Vec<Token> = Vec::new();
-        while !self.is_at_end() {
-            let token = match self.advance() {
-                Some(ch) => match ch {
-                    ' ' | '\t' | '\n' | '\r' => continue,
-                    '{' => Ok(Token::LeftBrace),
-                    '}' => Ok(Token::RightBrace),
-                    '[' => Ok(Token::LeftBracket),
-                    ']' => Ok(Token::RightBracket),
-                    ',' => Ok(Token::Comma),
-                    ':' => Ok(Token::Colon),
-                    ch if ch.is_ascii_alphabetic() => self.read_keyword(ch),
-                    ch if ch.is_ascii_digit() || ch == '-' => self.read_digit(ch),
-                    '"' => self.read_string(),
-                    _ => {
-                        return Err(JsonError::UnexpectedToken {
-                            expected: "valid JSON token".to_string(),
-                            found: ch.to_string(),
-                            position: self.current - 1,
-                        });
-                    }
-                },
-                None => break,
+        let mut tokens = Vec::new();
+        while let Some(ch) = self.advance() {
+            let token = match ch {
+                ' ' | '\t' | '\n' | '\r' => continue,
+                '{' => Ok(Token::LeftBrace),
+                '}' => Ok(Token::RightBrace),
+                '[' => Ok(Token::LeftBracket),
+                ']' => Ok(Token::RightBracket),
+                ',' => Ok(Token::Comma),
+                ':' => Ok(Token::Colon),
+                ch if ch.is_ascii_alphabetic() => self.read_keyword(ch),
+                ch if ch.is_ascii_digit() || ch == '-' => self.read_digit(ch),
+                '"' => self.read_string(),
+                _ => {
+                    return Err(JsonError::UnexpectedToken {
+                        expected: "valid JSON token".to_string(),
+                        found: ch.to_string(),
+                        position: self.current - 1,
+                    });
+                }
             };
             tokens.push(token?);
         }
