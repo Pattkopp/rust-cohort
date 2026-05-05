@@ -43,9 +43,8 @@ impl Tokenizer {
     }
 
     // === tokenizer helper functions ===
-    fn read_keyword(&mut self, ch: char) -> Result<Token, JsonError> {
+    fn read_keyword(&mut self, ch: char, token_start: usize) -> Result<Token, JsonError> {
         let mut word = String::from(ch);
-        let start_index = self.current - 1;
 
         while self.peek().is_some_and(|ch| ch.is_ascii_alphabetic()) {
             word.push(self.advance().unwrap());
@@ -57,15 +56,13 @@ impl Tokenizer {
             _ => Err(JsonError::UnexpectedToken {
                 expected: "valid keyword".to_string(),
                 found: word,
-                position: start_index,
+                position: token_start,
             }),
         }
     }
 
-    fn read_digit(&mut self, ch: char) -> Result<Token, JsonError> {
+    fn read_digit(&mut self, ch: char, token_start: usize) -> Result<Token, JsonError> {
         let mut num_str = String::from(ch);
-        let start_index = self.current - 1;
-
         while self
             .peek()
             .is_some_and(|ch| matches!(ch, '0'..='9' | '.' | 'E' | 'e' | '+' | '-'))
@@ -76,14 +73,13 @@ impl Tokenizer {
             Ok(num_parsed) => Ok(Token::Number(num_parsed)),
             Err(_) => Err(JsonError::InvalidNumber {
                 value: num_str,
-                position: start_index,
+                position: token_start,
             }),
         }
     }
 
-    fn read_string(&mut self) -> Result<Token, JsonError> {
+    fn read_string(&mut self, token_start: usize) -> Result<Token, JsonError> {
         let mut content = String::new();
-        let start_index = self.current - 1;
         loop {
             match self.advance() {
                 Some('"') => break,
@@ -91,7 +87,7 @@ impl Tokenizer {
                 None => {
                     return Err(JsonError::UnexpectedEndOfInput {
                         expected: "closing quote".to_string(),
-                        position: start_index,
+                        position: token_start,
                     });
                 }
             }
@@ -102,6 +98,7 @@ impl Tokenizer {
     pub fn tokenize(&mut self) -> Result<Vec<Token>, JsonError> {
         let mut tokens = Vec::new();
         while let Some(ch) = self.advance() {
+            let token_start = self.current - 1;
             let token = match ch {
                 ' ' | '\t' | '\n' | '\r' => continue,
                 '{' => Ok(Token::LeftBrace),
@@ -110,16 +107,14 @@ impl Tokenizer {
                 ']' => Ok(Token::RightBracket),
                 ',' => Ok(Token::Comma),
                 ':' => Ok(Token::Colon),
-                ch if ch.is_ascii_alphabetic() => self.read_keyword(ch),
-                ch if ch.is_ascii_digit() || ch == '-' => self.read_digit(ch),
-                '"' => self.read_string(),
-                _ => {
-                    Err(JsonError::UnexpectedToken {
-                        expected: "valid JSON token".to_string(),
-                        found: ch.to_string(),
-                        position: self.current - 1,
-                    })
-                }
+                ch if ch.is_ascii_alphabetic() => self.read_keyword(ch, token_start),
+                ch if ch.is_ascii_digit() || ch == '-' => self.read_digit(ch, token_start),
+                '"' => self.read_string(token_start),
+                _ => Err(JsonError::UnexpectedToken {
+                    expected: "valid JSON token".to_string(),
+                    found: ch.to_string(),
+                    position: token_start,
+                }),
             };
             tokens.push(token?);
         }
