@@ -19,6 +19,15 @@ pub struct Tokenizer {
     current: usize,
 }
 
+impl Tokenizer {
+    pub fn new(input: &str) -> Self {
+        Self {
+            input: input.chars().collect(),
+            current: 0,
+        }
+    }
+}
+
 pub fn tokenize(input: &str) -> Result<Vec<Token>, JsonError> {
     let mut tokens: Vec<Token> = Vec::new();
     let mut iter = input.char_indices().peekable();
