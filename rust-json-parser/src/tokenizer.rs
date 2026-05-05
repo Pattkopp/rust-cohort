@@ -1,3 +1,5 @@
+use std::str;
+
 use crate::error::JsonError;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -91,6 +93,31 @@ impl Tokenizer {
                         'n' => content.push('\n'),
                         'r' => content.push('\r'),
                         't' => content.push('\t'),
+                        'u' => match self.input.get(self.current..(self.current + 4)) {
+                            Some(hex_chars) => {
+                                // turn hex_chars into String
+                                let hex_str: String = hex_chars.iter().collect();
+                                // convert String to u32, returns a Result with wrong error type
+                                // transform ParseIntError to JsonError, ? then propagates it
+                                let code_point = u32::from_str_radix(&hex_str, 16)
+                                    .map_err(|_| JsonError::InvalidUnicode {
+                                        sequence: hex_str.clone(), // need to clone because I use hex_str below
+                                        position: token_start,
+                                    })?;
+                                // create char from Unicode, returns Option
+                                // ok_or is map_err equivalent for Option, creates Some to Ok and None to Err 
+                                let ch = char::from_u32(code_point)
+                                    .ok_or(JsonError::InvalidUnicode { sequence: hex_str, position: token_start })?;
+                                self.current += 4;
+                                content.push(ch);
+                            }
+                            None => {
+                                return Err(JsonError::InvalidUnicode {
+                                    sequence: self.input[self.current..].iter().collect(),
+                                    position: token_start,
+                                });
+                            }
+                        },
                         ch => {
                             return Err(JsonError::InvalidEscape {
                                 char: ch,
