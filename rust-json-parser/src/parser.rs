@@ -15,106 +15,41 @@ impl JsonParser {
         let tokens = Tokenizer::new(input).tokenize()?;
         Ok(Self { tokens, current: 0 })
     }
-}
-
-pub fn parse_json(input: &str) -> Result<JsonValue> {
-    // 1. Call tokenize(input)?  (? propagates errors)
-    let tokens = Tokenizer::new(input).tokenize()?; // TODO: Add `?` after tokenizer returns Result in Module 4.
-    // 2. Check if tokens is empty
-    if tokens.is_empty() {
-        return Err(JsonError::UnexpectedEndOfInput {
-            expected: "JSON value".to_string(),
-            position: 0,
-        });
+    fn advance(&mut self) -> Option<Token> {
+        self.current += 1;
+        self.tokens.get(self.current - 1).cloned()
     }
-    // 3. Match on tokens[0] and convert to JsonValue
-    match &tokens[0] {
-        Token::Null => Ok(JsonValue::Null),
-        Token::Boolean(b) => Ok(JsonValue::Boolean(*b)),
-        Token::Number(f) => Ok(JsonValue::Number(*f)),
-        Token::String(s) => Ok(JsonValue::String(s.clone())),
-        t => Err(JsonError::UnexpectedToken {
-            expected: "primitive JSON value".to_string(),
-            found: format!("{:?}", t),
-            position: 0,
-        }),
+    fn is_at_end(&self) -> bool {
+        self.current >= self.tokens.len()
+    }
+    pub fn parse(&mut self) -> Result<JsonValue> {
+        if self.tokens.is_empty() {
+            return Err(JsonError::UnexpectedEndOfInput {
+                expected: "JSON value".to_string(),
+                position: self.current,
+            });
+        };
+        match self.advance() {
+            Some(Token::Null) => Ok(JsonValue::Null),
+            Some(Token::Boolean(b)) => Ok(JsonValue::Boolean(b)),
+            Some(Token::Number(f)) => Ok(JsonValue::Number(f)),
+            Some(Token::String(s)) => Ok(JsonValue::String(s)),
+            Some(t) => Err(JsonError::UnexpectedToken {
+                expected: "primitive JSON value".to_string(),
+                found: format!("{:?}", t),
+                position: self.current - 1,
+            }),
+            None => Err(JsonError::UnexpectedEndOfInput {
+                expected: "JSON value".to_string(),
+                position: self.current - 1,
+            }),
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    // === Week 2 Tests ===
-
-    // Result type alias for cleaner test signatures
-    type Result<T> = std::result::Result<T, JsonError>;
-
-    #[test]
-    fn test_parse_string() -> Result<()> {
-        let result = parse_json(r#""hello world""#)?;
-        assert_eq!(result, JsonValue::String("hello world".to_string()));
-        Ok(())
-    }
-
-    #[test]
-    fn test_parse_boolean() -> Result<()> {
-        let result = parse_json("true")?;
-        assert_eq!(result, JsonValue::Boolean(true));
-
-        let result = parse_json("false")?;
-        assert_eq!(result, JsonValue::Boolean(false));
-        Ok(())
-    }
-
-    #[test]
-    fn test_parse_error_empty() {
-        let result = parse_json("");
-        assert!(result.is_err());
-
-        match result {
-            Err(JsonError::UnexpectedEndOfInput { expected, position }) => {
-                assert_eq!(expected, "JSON value");
-                assert_eq!(position, 0);
-            }
-            _ => panic!("Expected UnexpectedEndOfInput error"),
-        }
-    }
-
-    #[test]
-    fn test_parse_error_invalid_token() {
-        let result = parse_json("@");
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_parse_with_whitespace() -> Result<()> {
-        let result = parse_json("  42  ")?;
-        assert_eq!(result, JsonValue::Number(42.0));
-
-        let result = parse_json("\n\ttrue\n")?;
-        assert_eq!(result, JsonValue::Boolean(true));
-        Ok(())
-    }
-
-    #[test]
-    fn test_result_pattern_matching() {
-        let result = parse_json("42");
-
-        match result {
-            Ok(JsonValue::Number(n)) => assert_eq!(n, 42.0),
-            _ => panic!("Expected successful number parse"),
-        }
-
-        let result = parse_json("@invalid@");
-
-        match result {
-            Err(JsonError::UnexpectedToken { .. }) => {} // Expected
-            _ => panic!("Expected UnexpectedToken error"),
-        }
-    }
-
-    // === Week 3 Tests ===
 
     // === Struct Usage Tests ===
 
