@@ -17,8 +17,9 @@ impl JsonParser {
         Ok(Self { tokens, current: 0 })
     }
     fn advance(&mut self) -> Option<Token> {
+        let token = self.tokens.get(self.current).cloned();
         self.current += 1;
-        self.tokens.get(self.current - 1).cloned()
+        token
     }
     fn is_at_end(&self) -> bool {
         self.current >= self.tokens.len()

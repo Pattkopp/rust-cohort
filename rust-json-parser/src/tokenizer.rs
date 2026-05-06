@@ -34,10 +34,11 @@ impl Tokenizer {
     fn peek(&self) -> Option<char> {
         self.input.get(self.current).copied()
     }
-    // move forward, return previous char
+    // return current char, then move forward
     fn advance(&mut self) -> Option<char> {
+        let token = self.input.get(self.current).copied();
         self.current += 1;
-        self.input.get(self.current - 1).copied()
+        token
     }
     // check if we've consumed all input
     fn is_at_end(&self) -> bool {
@@ -99,15 +100,21 @@ impl Tokenizer {
                                 let hex_str: String = hex_chars.iter().collect();
                                 // convert String to u32, returns a Result with wrong error type
                                 // transform ParseIntError to JsonError, ? then propagates it
-                                let code_point = u32::from_str_radix(&hex_str, 16)
-                                    .map_err(|_| JsonError::InvalidUnicode {
-                                        sequence: hex_str.clone(), // need to clone because I use hex_str below
-                                        position: token_start,
+                                let code_point =
+                                    u32::from_str_radix(&hex_str, 16).map_err(|_| {
+                                        JsonError::InvalidUnicode {
+                                            sequence: hex_str.clone(), // need to clone because I use hex_str below
+                                            position: token_start,
+                                        }
                                     })?;
                                 // create char from Unicode, returns Option
-                                // ok_or is map_err equivalent for Option, creates Some to Ok and None to Err 
-                                let ch = char::from_u32(code_point)
-                                    .ok_or(JsonError::InvalidUnicode { sequence: hex_str, position: token_start })?;
+                                // ok_or is map_err equivalent for Option, creates Some to Ok and None to Err
+                                let ch = char::from_u32(code_point).ok_or(
+                                    JsonError::InvalidUnicode {
+                                        sequence: hex_str,
+                                        position: token_start,
+                                    },
+                                )?;
                                 self.current += 4;
                                 content.push(ch);
                             }
@@ -147,7 +154,7 @@ impl Tokenizer {
     pub fn tokenize(&mut self) -> Result<Vec<Token>, JsonError> {
         let mut tokens = Vec::new();
         while let Some(ch) = self.advance() {
-            let token_start = self.current - 1;
+            let token_start = self.current - 1; // counter has already advanced but token is still the one before
             let token = match ch {
                 ' ' | '\t' | '\n' | '\r' => continue,
                 '{' => Ok(Token::LeftBrace),
