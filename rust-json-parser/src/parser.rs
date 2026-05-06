@@ -25,7 +25,7 @@ impl JsonParser {
         self.current >= self.tokens.len()
     }
     pub fn parse(&mut self) -> Result<JsonValue> {
-        if self.tokens.is_empty() {
+        if self.is_at_end() {
             return Err(JsonError::UnexpectedEndOfInput {
                 expected: "JSON value".to_string(),
                 position: self.current,
