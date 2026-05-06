@@ -1,5 +1,3 @@
-use std::str;
-
 use crate::error::JsonError;
 
 #[derive(Debug, PartialEq, Clone)]
