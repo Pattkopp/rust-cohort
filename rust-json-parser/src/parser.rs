@@ -166,4 +166,212 @@ mod tests {
         let parser = JsonParser::new("   ");
         assert!(parser.is_err() || parser.unwrap().parse().is_err());
     }
+
+    mod array_tests {
+        use super::*;
+
+        #[test]
+        fn test_parse_empty_array() {
+            let value = parse_json("[]").unwrap();
+            assert_eq!(value, JsonValue::Array(vec![]));
+        }
+
+        #[test]
+        fn test_parse_array_single() {
+            let value = parse_json("[1]").unwrap();
+            assert_eq!(value, JsonValue::Array(vec![JsonValue::Number(1.0)]));
+        }
+
+        #[test]
+        fn test_parse_array_multiple() {
+            let value = parse_json("[1, 2, 3]").unwrap();
+            let expected = JsonValue::Array(vec![
+                JsonValue::Number(1.0),
+                JsonValue::Number(2.0),
+                JsonValue::Number(3.0),
+            ]);
+            assert_eq!(value, expected);
+        }
+
+        #[test]
+        fn test_parse_array_mixed_types() {
+            let value = parse_json(r#"[1, "two", true, null]"#).unwrap();
+            let expected = JsonValue::Array(vec![
+                JsonValue::Number(1.0),
+                JsonValue::String("two".to_string()),
+                JsonValue::Boolean(true),
+                JsonValue::Null,
+            ]);
+            assert_eq!(value, expected);
+        }
+
+        #[test]
+        fn test_parse_nested_arrays() {
+            let value = parse_json("[[1, 2], [3, 4]]").unwrap();
+            let expected = JsonValue::Array(vec![
+                JsonValue::Array(vec![JsonValue::Number(1.0), JsonValue::Number(2.0)]),
+                JsonValue::Array(vec![JsonValue::Number(3.0), JsonValue::Number(4.0)]),
+            ]);
+            assert_eq!(value, expected);
+        }
+
+        #[test]
+        fn test_parse_deeply_nested() {
+            let value = parse_json("[[[1]]]").unwrap();
+            let expected = JsonValue::Array(vec![JsonValue::Array(vec![JsonValue::Array(vec![
+                JsonValue::Number(1.0),
+            ])])]);
+            assert_eq!(value, expected);
+        }
+
+        #[test]
+        fn test_array_accessor() {
+            let value = parse_json("[1, 2, 3]").unwrap();
+            let arr = value.as_array().unwrap();
+            assert_eq!(arr.len(), 3);
+        }
+
+        #[test]
+        fn test_array_get_index() {
+            let value = parse_json("[10, 20, 30]").unwrap();
+            assert_eq!(value.get_index(1), Some(&JsonValue::Number(20.0)));
+            assert_eq!(value.get_index(5), None);
+        }
+    }
+
+    mod object_tests {
+
+        #[test]
+        fn test_parse_empty_object() {
+            let value = parse_json("{}").unwrap();
+            assert_eq!(value, JsonValue::Object(HashMap::new()));
+        }
+
+        #[test]
+        fn test_parse_object_single_key() {
+            let value = parse_json(r#"{"key": "value"}"#).unwrap();
+            let mut expected = HashMap::new();
+            expected.insert("key".to_string(), JsonValue::String("value".to_string()));
+            assert_eq!(value, JsonValue::Object(expected));
+        }
+
+        #[test]
+        fn test_parse_object_multiple_keys() {
+            let value = parse_json(r#"{"name": "Alice", "age": 30}"#).unwrap();
+            if let JsonValue::Object(obj) = value {
+                assert_eq!(
+                    obj.get("name"),
+                    Some(&JsonValue::String("Alice".to_string()))
+                );
+                assert_eq!(obj.get("age"), Some(&JsonValue::Number(30.0)));
+            } else {
+                panic!("Expected object");
+            }
+        }
+
+        #[test]
+        fn test_parse_nested_object() {
+            let value = parse_json(r#"{"outer": {"inner": 1}}"#).unwrap();
+            if let JsonValue::Object(outer) = value {
+                if let Some(JsonValue::Object(inner)) = outer.get("outer") {
+                    assert_eq!(inner.get("inner"), Some(&JsonValue::Number(1.0)));
+                } else {
+                    panic!("Expected nested object");
+                }
+            } else {
+                panic!("Expected object");
+            }
+        }
+
+        #[test]
+        fn test_parse_array_in_object() {
+            let value = parse_json(r#"{"items": [1, 2, 3]}"#).unwrap();
+            if let JsonValue::Object(obj) = value {
+                if let Some(JsonValue::Array(arr)) = obj.get("items") {
+                    assert_eq!(arr.len(), 3);
+                } else {
+                    panic!("Expected array");
+                }
+            } else {
+                panic!("Expected object");
+            }
+        }
+
+        #[test]
+        fn test_parse_object_in_array() {
+            let value = parse_json(r#"[{"a": 1}, {"b": 2}]"#).unwrap();
+            if let JsonValue::Array(arr) = value {
+                assert_eq!(arr.len(), 2);
+            } else {
+                panic!("Expected array");
+            }
+        }
+
+        #[test]
+        fn test_object_accessor() {
+            let value = parse_json(r#"{"name": "test"}"#).unwrap();
+            let obj = value.as_object().unwrap();
+            assert_eq!(obj.len(), 1);
+        }
+
+        #[test]
+        fn test_object_get() {
+            let value = parse_json(r#"{"name": "Alice", "age": 30}"#).unwrap();
+            assert_eq!(
+                value.get("name"),
+                Some(&JsonValue::String("Alice".to_string()))
+            );
+            assert_eq!(value.get("missing"), None);
+        }
+    }
+    mod error_tests {
+
+        #[test]
+        fn test_error_unclosed_array() {
+            let result = parse_json("[1, 2");
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn test_error_unclosed_object() {
+            let result = parse_json(r#"{"key": 1"#);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn test_error_trailing_comma_array() {
+            let result = parse_json("[1, 2,]");
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn test_error_trailing_comma_object() {
+            let result = parse_json(r#"{"a": 1,}"#);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn test_error_missing_colon() {
+            let result = parse_json(r#"{"key" 1}"#);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn test_error_invalid_key() {
+            let result = parse_json(r#"{123: "value"}"#);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn test_error_missing_comma_array() {
+            let result = parse_json("[1 2 3]");
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn test_error_missing_comma_object() {
+            let result = parse_json(r#"{"a": 1 "b": 2}"#);
+            assert!(result.is_err());
+        }
+    }
 }
