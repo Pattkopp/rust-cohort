@@ -16,14 +16,17 @@ impl JsonParser {
         let tokens = Tokenizer::new(input).tokenize()?;
         Ok(Self { tokens, current: 0 })
     }
+
     fn advance(&mut self) -> Option<Token> {
         let token = self.tokens.get(self.current).cloned();
         self.current += 1;
         token
     }
+
     fn is_at_end(&self) -> bool {
         self.current >= self.tokens.len()
     }
+
     pub fn parse(&mut self) -> Result<JsonValue> {
         if self.is_at_end() {
             return Err(JsonError::UnexpectedEndOfInput {
@@ -172,19 +175,19 @@ mod tests {
 
         #[test]
         fn test_parse_empty_array() {
-            let value = parse_json("[]").unwrap();
+            let value = JsonParser::new("[]").unwrap().parse().unwrap();
             assert_eq!(value, JsonValue::Array(vec![]));
         }
 
         #[test]
         fn test_parse_array_single() {
-            let value = parse_json("[1]").unwrap();
+            let value = JsonParser::new("[1]").unwrap().parse().unwrap();
             assert_eq!(value, JsonValue::Array(vec![JsonValue::Number(1.0)]));
         }
 
         #[test]
         fn test_parse_array_multiple() {
-            let value = parse_json("[1, 2, 3]").unwrap();
+            let value = JsonParser::new("[1, 2, 3]").unwrap().parse().unwrap();
             let expected = JsonValue::Array(vec![
                 JsonValue::Number(1.0),
                 JsonValue::Number(2.0),
@@ -195,7 +198,7 @@ mod tests {
 
         #[test]
         fn test_parse_array_mixed_types() {
-            let value = parse_json(r#"[1, "two", true, null]"#).unwrap();
+            let value = JsonParser::new(r#"[1, "two", true, null]"#).unwrap().parse().unwrap();
             let expected = JsonValue::Array(vec![
                 JsonValue::Number(1.0),
                 JsonValue::String("two".to_string()),
@@ -207,7 +210,7 @@ mod tests {
 
         #[test]
         fn test_parse_nested_arrays() {
-            let value = parse_json("[[1, 2], [3, 4]]").unwrap();
+            let value = JsonParser::new("[[1, 2], [3, 4]]").unwrap().parse().unwrap();
             let expected = JsonValue::Array(vec![
                 JsonValue::Array(vec![JsonValue::Number(1.0), JsonValue::Number(2.0)]),
                 JsonValue::Array(vec![JsonValue::Number(3.0), JsonValue::Number(4.0)]),
@@ -217,7 +220,7 @@ mod tests {
 
         #[test]
         fn test_parse_deeply_nested() {
-            let value = parse_json("[[[1]]]").unwrap();
+            let value = JsonParser::new("[[[1]]]").unwrap().parse().unwrap();
             let expected = JsonValue::Array(vec![JsonValue::Array(vec![JsonValue::Array(vec![
                 JsonValue::Number(1.0),
             ])])]);
@@ -226,30 +229,32 @@ mod tests {
 
         #[test]
         fn test_array_accessor() {
-            let value = parse_json("[1, 2, 3]").unwrap();
+            let value = JsonParser::new("[1, 2, 3]").unwrap().parse().unwrap();
             let arr = value.as_array().unwrap();
             assert_eq!(arr.len(), 3);
         }
 
         #[test]
         fn test_array_get_index() {
-            let value = parse_json("[10, 20, 30]").unwrap();
+            let value = JsonParser::new("[10, 20, 30]").unwrap().parse().unwrap();
             assert_eq!(value.get_index(1), Some(&JsonValue::Number(20.0)));
             assert_eq!(value.get_index(5), None);
         }
     }
 
     mod object_tests {
+        use super::*;
+        use std::collections::HashMap;
 
         #[test]
         fn test_parse_empty_object() {
-            let value = parse_json("{}").unwrap();
+            let value = JsonParser::new("{}").unwrap().parse().unwrap();
             assert_eq!(value, JsonValue::Object(HashMap::new()));
         }
 
         #[test]
         fn test_parse_object_single_key() {
-            let value = parse_json(r#"{"key": "value"}"#).unwrap();
+            let value = JsonParser::new(r#"{"key": "value"}"#).unwrap().parse().unwrap();
             let mut expected = HashMap::new();
             expected.insert("key".to_string(), JsonValue::String("value".to_string()));
             assert_eq!(value, JsonValue::Object(expected));
@@ -257,7 +262,7 @@ mod tests {
 
         #[test]
         fn test_parse_object_multiple_keys() {
-            let value = parse_json(r#"{"name": "Alice", "age": 30}"#).unwrap();
+            let value = JsonParser::new(r#"{"name": "Alice", "age": 30}"#).unwrap().parse().unwrap();
             if let JsonValue::Object(obj) = value {
                 assert_eq!(
                     obj.get("name"),
@@ -271,7 +276,7 @@ mod tests {
 
         #[test]
         fn test_parse_nested_object() {
-            let value = parse_json(r#"{"outer": {"inner": 1}}"#).unwrap();
+            let value = JsonParser::new(r#"{"outer": {"inner": 1}}"#).unwrap().parse().unwrap();
             if let JsonValue::Object(outer) = value {
                 if let Some(JsonValue::Object(inner)) = outer.get("outer") {
                     assert_eq!(inner.get("inner"), Some(&JsonValue::Number(1.0)));
@@ -285,7 +290,7 @@ mod tests {
 
         #[test]
         fn test_parse_array_in_object() {
-            let value = parse_json(r#"{"items": [1, 2, 3]}"#).unwrap();
+            let value = JsonParser::new(r#"{"items": [1, 2, 3]}"#).unwrap().parse().unwrap();
             if let JsonValue::Object(obj) = value {
                 if let Some(JsonValue::Array(arr)) = obj.get("items") {
                     assert_eq!(arr.len(), 3);
@@ -299,7 +304,7 @@ mod tests {
 
         #[test]
         fn test_parse_object_in_array() {
-            let value = parse_json(r#"[{"a": 1}, {"b": 2}]"#).unwrap();
+            let value = JsonParser::new(r#"[{"a": 1}, {"b": 2}]"#).unwrap().parse().unwrap();
             if let JsonValue::Array(arr) = value {
                 assert_eq!(arr.len(), 2);
             } else {
@@ -309,14 +314,14 @@ mod tests {
 
         #[test]
         fn test_object_accessor() {
-            let value = parse_json(r#"{"name": "test"}"#).unwrap();
+            let value = JsonParser::new(r#"{"name": "test"}"#).unwrap().parse().unwrap();
             let obj = value.as_object().unwrap();
             assert_eq!(obj.len(), 1);
         }
 
         #[test]
         fn test_object_get() {
-            let value = parse_json(r#"{"name": "Alice", "age": 30}"#).unwrap();
+            let value = JsonParser::new(r#"{"name": "Alice", "age": 30}"#).unwrap().parse().unwrap();
             assert_eq!(
                 value.get("name"),
                 Some(&JsonValue::String("Alice".to_string()))
@@ -325,52 +330,53 @@ mod tests {
         }
     }
     mod error_tests {
+        use super::*;
 
         #[test]
         fn test_error_unclosed_array() {
-            let result = parse_json("[1, 2");
+            let result = JsonParser::new("[1, 2").unwrap().parse();
             assert!(result.is_err());
         }
 
         #[test]
         fn test_error_unclosed_object() {
-            let result = parse_json(r#"{"key": 1"#);
+            let result = JsonParser::new(r#"{"key": 1"#).unwrap().parse();
             assert!(result.is_err());
         }
 
         #[test]
         fn test_error_trailing_comma_array() {
-            let result = parse_json("[1, 2,]");
+            let result = JsonParser::new("[1, 2,]").unwrap().parse();
             assert!(result.is_err());
         }
 
         #[test]
         fn test_error_trailing_comma_object() {
-            let result = parse_json(r#"{"a": 1,}"#);
+            let result = JsonParser::new(r#"{"a": 1,}"#).unwrap().parse();
             assert!(result.is_err());
         }
 
         #[test]
         fn test_error_missing_colon() {
-            let result = parse_json(r#"{"key" 1}"#);
+            let result = JsonParser::new(r#"{"key" 1}"#).unwrap().parse();
             assert!(result.is_err());
         }
 
         #[test]
         fn test_error_invalid_key() {
-            let result = parse_json(r#"{123: "value"}"#);
+            let result = JsonParser::new(r#"{123: "value"}"#).unwrap().parse();
             assert!(result.is_err());
         }
 
         #[test]
         fn test_error_missing_comma_array() {
-            let result = parse_json("[1 2 3]");
+            let result = JsonParser::new("[1 2 3]").unwrap().parse();
             assert!(result.is_err());
         }
 
         #[test]
         fn test_error_missing_comma_object() {
-            let result = parse_json(r#"{"a": 1 "b": 2}"#);
+            let result = JsonParser::new(r#"{"a": 1 "b": 2}"#).unwrap().parse();
             assert!(result.is_err());
         }
     }

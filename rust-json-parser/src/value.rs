@@ -116,6 +116,8 @@ mod tests {
     }
 
     mod display_tests {
+        use super::*;
+        use crate::parser::JsonParser;
 
         #[test]
         fn test_display_primitives() {
@@ -156,7 +158,7 @@ mod tests {
 
         #[test]
         fn test_display_nested() {
-            let value = parse_json(r#"{"arr": [1, 2]}"#).unwrap();
+            let value = JsonParser::new(r#"{"arr": [1, 2]}"#).unwrap().parse().unwrap();
             let output = value.to_string();
             // Object key order may vary, so check components
             assert!(output.contains("\"arr\""));
