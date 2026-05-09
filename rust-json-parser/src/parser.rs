@@ -1,5 +1,3 @@
-use std::mem;
-
 use crate::error::JsonError;
 use crate::tokenizer::{Token, Tokenizer};
 use crate::value::{self, JsonValue};
