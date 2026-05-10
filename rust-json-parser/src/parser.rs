@@ -44,7 +44,16 @@ impl JsonParser {
             match self.peek() {
                 Some(Token::Comma) => {
                     self.advance();
-                    continue;
+                    match self.peek() {
+                        Some(t @ Token::RightBracket) => {
+                            return Err(JsonError::UnexpectedToken {
+                                expected: "next array item".to_string(),
+                                found: format!("{:?}", t),
+                                position: self.current,
+                            });
+                        }
+                        _ => continue,
+                    }
                 }
                 Some(Token::RightBracket) => {
                     self.advance();
