@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum JsonValue {
@@ -61,6 +61,56 @@ impl JsonValue {
             map.get(key)
         } else {
             None
+        }
+    }
+}
+
+impl fmt::Display for JsonValue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            JsonValue::Null => write!(f, "null"),
+            JsonValue::Boolean(b) => write!(f, "{}", b),
+            JsonValue::Number(n) => {
+                if n.fract() == 0.0 {
+                    write!(f, "{}", *n as i64)
+                } else {
+                    write!(f, "{}", n)
+                }
+            }
+            JsonValue::String(s) => {
+                write!(f, "\"")?;
+                for ch in s.chars() {
+                    match ch {
+                        '\n' => write!(f, "\\n")?,
+                        '\t' => write!(f, "\\t")?,
+                        '\r' => write!(f, "\\r")?,
+                        '\\' => write!(f, "\\\\")?,
+                        '\"' => write!(f, "\\\"")?,
+                        ch => write!(f, "{}", ch)?,
+                    }
+                }
+                write!(f, "\"")
+            }
+            JsonValue::Array(arr) => {
+                write!(f, "[")?;
+                for (i, element) in arr.iter().enumerate() {
+                    if i != 0 {
+                        write!(f, ",")?;
+                    }
+                    write!(f, "{}", element)?;
+                }
+                write!(f, "]")
+            }
+            JsonValue::Object(obj) => {
+                write!(f, "{{")?;
+                for (i, (key, value)) in obj.iter().enumerate() {
+                    if i != 0 {
+                        write!(f, ",")?;
+                    }
+                    write!(f, "\"{}\":{}", key, value)?;
+                }
+                write!(f, "}}")
+            }
         }
     }
 }
@@ -158,7 +208,10 @@ mod tests {
 
         #[test]
         fn test_display_nested() {
-            let value = JsonParser::new(r#"{"arr": [1, 2]}"#).unwrap().parse().unwrap();
+            let value = JsonParser::new(r#"{"arr": [1, 2]}"#)
+                .unwrap()
+                .parse()
+                .unwrap();
             let output = value.to_string();
             // Object key order may vary, so check components
             assert!(output.contains("\"arr\""));

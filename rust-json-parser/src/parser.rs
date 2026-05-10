@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::error::JsonError;
 use crate::tokenizer::{Token, Tokenizer};
-use crate::value::{self, JsonValue};
+use crate::value::JsonValue;
 
 // Result type alias for convenience
 type Result<T> = std::result::Result<T, JsonError>;
