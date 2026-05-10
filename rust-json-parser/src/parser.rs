@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::error::JsonError;
 use crate::tokenizer::{Token, Tokenizer};
 use crate::value::{self, JsonValue};
@@ -77,6 +79,71 @@ impl JsonParser {
         Ok(JsonValue::Array(arr))
     }
 
+    fn parse_object(&mut self) -> Result<JsonValue> {
+        let mut obj = HashMap::new();
+        if matches!(self.peek(), Some(Token::RightBrace)) {
+            self.advance();
+            return Ok(JsonValue::Object(obj));
+        }
+        loop {
+            match self.advance() {
+                Some(Token::String(key)) => match self.advance() {
+                    Some(Token::Colon) => {
+                        let value = self.parse()?;
+                        obj.insert(key, value);
+                        match self.peek() {
+                            Some(Token::Comma) => {
+                                self.advance();
+                                match self.peek() {
+                                    Some(t @ Token::RightBrace) => {
+                                        return Err(JsonError::UnexpectedToken {
+                                            expected: "next object item".to_string(),
+                                            found: format!("{:?}", t),
+                                            position: self.current,
+                                        });
+                                    }
+                                    _ => continue,
+                                }
+                            }
+                            Some(Token::RightBrace) => {
+                                self.advance();
+                                break;
+                            }
+                            Some(t) => {
+                                return Err(JsonError::UnexpectedToken {
+                                    expected: "comma or closing brace".to_string(),
+                                    found: format!("{:?}", t),
+                                    position: self.current,
+                                });
+                            }
+                            None => {
+                                return Err(JsonError::UnexpectedEndOfInput {
+                                    expected: "comma or closing brace".to_string(),
+                                    position: self.current,
+                                });
+                            }
+                        }
+                    }
+                    t => {
+                        return Err(JsonError::UnexpectedToken {
+                            expected: "colon as separator for an object".to_string(),
+                            found: format!("{:?}", t),
+                            position: self.current,
+                        });
+                    }
+                },
+                t => {
+                    return Err(JsonError::UnexpectedToken {
+                        expected: "string as key for an object".to_string(),
+                        found: format!("{:?}", t),
+                        position: self.current,
+                    });
+                }
+            }
+        }
+        Ok(JsonValue::Object(obj))
+    }
+
     pub fn parse(&mut self) -> Result<JsonValue> {
         if self.is_at_end() {
             return Err(JsonError::UnexpectedEndOfInput {
@@ -90,6 +157,7 @@ impl JsonParser {
             Some(Token::Number(f)) => Ok(JsonValue::Number(f)),
             Some(Token::String(s)) => Ok(JsonValue::String(s)),
             Some(Token::LeftBracket) => self.parse_array(),
+            Some(Token::LeftBrace) => self.parse_object(),
             Some(t) => Err(JsonError::UnexpectedToken {
                 expected: "primitive JSON value".to_string(),
                 found: format!("{:?}", t),
