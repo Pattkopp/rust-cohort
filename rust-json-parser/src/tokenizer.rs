@@ -107,8 +107,8 @@ impl Tokenizer {
                                 let code_point =
                                     u32::from_str_radix(&hex_str, 16).map_err(|_| {
                                         JsonError::InvalidUnicode {
-                                            sequence: hex_str.clone(), // need to clone because I use hex_str below
-                                            position: token_start,
+                                            sequence: hex_str.clone(),  // need to clone because I use hex_str below
+                                            position: self.current - 2, // includes the \ in the position
                                         }
                                     })?;
                                 // create char from Unicode, returns Option
@@ -116,23 +116,27 @@ impl Tokenizer {
                                 let ch = char::from_u32(code_point).ok_or(
                                     JsonError::InvalidUnicode {
                                         sequence: hex_str,
-                                        position: token_start,
+                                        position: self.current - 2,
                                     },
                                 )?;
                                 self.current += 4;
                                 content.push(ch);
                             }
                             None => {
+                                let remaining: String = self.input[self.current..]
+                                    .iter()
+                                    .take_while(|ch| ch.is_ascii_hexdigit()) // only take the hex digits
+                                    .collect();
                                 return Err(JsonError::InvalidUnicode {
-                                    sequence: self.input[self.current..].iter().collect(),
-                                    position: token_start,
+                                    sequence: remaining,
+                                    position: self.current - 2,
                                 });
                             }
                         },
                         ch => {
                             return Err(JsonError::InvalidEscape {
                                 char: ch,
-                                position: token_start,
+                                position: self.current - 2,
                             });
                         }
                     },
