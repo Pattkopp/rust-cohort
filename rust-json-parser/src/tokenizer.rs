@@ -32,6 +32,7 @@ impl Tokenizer {
     fn peek(&self) -> Option<char> {
         self.input.get(self.current).copied()
     }
+
     // return current char, then move forward
     fn advance(&mut self) -> Option<char> {
         let token = self.input.get(self.current).copied();
@@ -39,12 +40,21 @@ impl Tokenizer {
         token
     }
 
+    // combined method that peeks and advances in one step to address the PR feedback
+    fn advance_if(&mut self, predicate: impl Fn(char) -> bool) -> Option<char> {
+        if self.peek().is_some_and(&predicate) {
+            self.advance()
+        } else {
+            None
+        }
+    }
+
     // === tokenizer helper functions ===
     fn read_keyword(&mut self, ch: char, token_start: usize) -> Result<Token, JsonError> {
         let mut word = String::from(ch);
 
-        while self.peek().is_some_and(|ch| ch.is_ascii_alphabetic()) {
-            word.push(self.advance().unwrap());
+        while let Some(ch) = self.advance_if(|ch| ch.is_ascii_alphabetic()) {
+            word.push(ch);
         }
         match word.as_str() {
             "true" => Ok(Token::Boolean(true)),
@@ -60,11 +70,11 @@ impl Tokenizer {
 
     fn read_digit(&mut self, ch: char, token_start: usize) -> Result<Token, JsonError> {
         let mut num_str = String::from(ch);
-        while self
-            .peek()
-            .is_some_and(|ch| matches!(ch, '0'..='9' | '.' | 'E' | 'e' | '+' | '-'))
+
+        while let Some(ch) =
+            self.advance_if(|ch| matches!(ch, '0'..='9' | '.' | 'E' | 'e' | '+' | '-'))
         {
-            num_str.push(self.advance().unwrap());
+            num_str.push(ch);
         }
         match num_str.parse::<f64>() {
             Ok(num_parsed) => Ok(Token::Number(num_parsed)),
