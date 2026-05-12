@@ -1,12 +1,3 @@
-// Week 2: JsonValue enum to represent parsed JSON values
-// Week 2 focuses on basic types only - no collections yet
-
-// TODO: Define your JsonValue enum here
-// Hint: You need variants for:
-// - Null
-// - Boolean(bool)
-// - Number(f64)
-// - String(String)
 #[derive(Debug, Clone, PartialEq)]
 pub enum JsonValue {
     Null,
@@ -15,7 +6,6 @@ pub enum JsonValue {
     String(String),
 }
 
-// TODO: Implement helper methods
 impl JsonValue {
     pub fn is_null(&self) -> bool {
         matches!(self, JsonValue::Null)
@@ -42,7 +32,6 @@ impl JsonValue {
     }
 }
 
-// Copy these tests as-is:
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -1,11 +1,5 @@
-// Week 2: Custom error type for JSON parsing
 use std::fmt;
 
-// TODO: Define your JsonError enum here
-// Hint: You need variants for:
-// - UnexpectedToken { expected: String, found: String, position: usize }
-// - UnexpectedEndOfInput { expected: String, position: usize }
-// - InvalidNumber { value: String, position: usize }
 #[derive(Debug, Clone, PartialEq)]
 pub enum JsonError {
     UnexpectedToken {
@@ -21,14 +15,16 @@ pub enum JsonError {
         value: String,
         position: usize,
     },
+    InvalidEscape {
+        char: char,
+        position: usize,
+    },
+    InvalidUnicode {
+        sequence: String,
+        position: usize,
+    },
 }
 
-// TODO: Implement Display trait
-// impl fmt::Display for JsonError {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         // Your code here
-//     }
-// }
 impl fmt::Display for JsonError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -53,18 +49,27 @@ impl fmt::Display for JsonError {
             JsonError::InvalidNumber { value, position } => {
                 write!(f, "invalid number {} at position {}", value, position)
             }
+            JsonError::InvalidEscape { char, position } => {
+                write!(
+                    f,
+                    "invalid escape character {} at position {}",
+                    char, position
+                )
+            }
+            JsonError::InvalidUnicode { sequence, position } => {
+                write!(f, "invalid Unicode {} at position {}", sequence, position)
+            }
         }
     }
 }
 
-// TODO: Implement Error trait
-// impl std::error::Error for JsonError {}
 impl std::error::Error for JsonError {}
 
-// Copy these tests as-is:
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    //  Week 2 Tests
 
     #[test]
     fn test_error_creation() {
@@ -111,8 +116,43 @@ mod tests {
         };
 
         // All variants should be Debug-printable
-        format!("{:?}", token_error);
-        format!("{:?}", eof_error);
-        format!("{:?}", num_error);
+        assert!(
+            format!("{:?}", token_error)
+                .contains("expected: \"number\", found: \"x\", position: 3")
+        );
+        assert!(format!("{:?}", eof_error).contains("closing quote"));
+        assert!(format!("{:?}", num_error).contains("12.34.56"));
+    }
+
+    // Week 3 Tests
+
+    #[test]
+    fn test_invalid_escape_display() {
+        let err = JsonError::InvalidEscape {
+            char: 'q',
+            position: 5,
+        };
+        let msg = format!("{}", err);
+        assert!(msg.contains("escape"));
+        assert!(msg.contains("q"));
+    }
+
+    #[test]
+    fn test_invalid_unicode_display() {
+        let err = JsonError::InvalidUnicode {
+            sequence: "00GG".to_string(),
+            position: 3,
+        };
+        let msg = format!("{}", err);
+        assert!(msg.contains("unicode") || msg.contains("Unicode"));
+    }
+
+    #[test]
+    fn test_error_is_std_error() {
+        let err = JsonError::InvalidEscape {
+            char: 'x',
+            position: 0,
+        };
+        let _: &dyn std::error::Error = &err; // Must implement Error trait
     }
 }

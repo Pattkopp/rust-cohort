@@ -1,8 +1,9 @@
-use rust_json_parser::parse_json;
+use rust_json_parser::JsonParser;
 
 fn main() {
-    let input = r#""The quick brown fox jumps over the lazy dog""#;
-    let result = parse_json(input);
+    let input = "true"; // &'static str => borrow - who owns "true"?
+    // let input: String = String::from("true"); --> now input owns "true"
+    let result = JsonParser::new().parse(input);
     println!("Input JSON: {input}");
     println!("\nResult:");
     match result {

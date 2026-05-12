@@ -1,7 +1,3 @@
-// Week 2: JSON Parser with Error Handling
-
-// Declare modules - tell Rust which files contain your code
-// `mod error;` looks for src/error.rs
 mod error;
 mod parser;
 mod tokenizer;
@@ -11,15 +7,14 @@ mod value;
 // Without this: users write `use my_lib::parser::parse_json`
 // With this: users write `use my_lib::parse_json` (cleaner!)
 pub use error::JsonError;
-pub use parser::parse_json;
-pub use tokenizer::{Token, tokenize};
+pub use parser::JsonParser;
+pub use tokenizer::{Token, Tokenizer};
 pub use value::JsonValue;
 
 // Type alias for convenience
 // Users can write Result<JsonValue> instead of std::result::Result<JsonValue, JsonError>
 pub type Result<T> = std::result::Result<T, JsonError>;
 
-// Copy these tests as-is:
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -27,11 +22,12 @@ mod tests {
     #[test]
     fn test_integration() -> Result<()> {
         // Test the full parsing pipeline
-        assert_eq!(parse_json("42")?, JsonValue::Number(42.0));
-        assert_eq!(parse_json("true")?, JsonValue::Boolean(true));
-        assert_eq!(parse_json("null")?, JsonValue::Null);
+        let mut parser = JsonParser::new();
+        assert_eq!(parser.parse("42")?, JsonValue::Number(42.0));
+        assert_eq!(parser.parse("true")?, JsonValue::Boolean(true));
+        assert_eq!(parser.parse("null")?, JsonValue::Null);
         assert_eq!(
-            parse_json(r#""hello""#)?,
+            parser.parse(r#""hello""#)?,
             JsonValue::String("hello".to_string())
         );
         Ok(())
@@ -40,7 +36,8 @@ mod tests {
     #[test]
     fn test_error_propagation() {
         // Test that errors propagate properly with correct details
-        let result = parse_json("@invalid@");
+        let mut parser = JsonParser::new();
+        let result = parser.parse("@invalid@");
         assert!(result.is_err());
 
         // Validate error details through pattern matching
