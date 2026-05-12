@@ -38,10 +38,6 @@ impl Tokenizer {
         self.current += 1;
         token
     }
-    // check if we've consumed all input
-    fn is_at_end(&self) -> bool {
-        self.current >= self.input.len()
-    }
 
     // === tokenizer helper functions ===
     fn read_keyword(&mut self, ch: char, token_start: usize) -> Result<Token, JsonError> {
