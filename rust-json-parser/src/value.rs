@@ -208,9 +208,8 @@ mod tests {
 
         #[test]
         fn test_display_nested() {
-            let value = JsonParser::new(r#"{"arr": [1, 2]}"#)
-                .unwrap()
-                .parse()
+            let value = JsonParser::new()
+                .parse(r#"{"arr": [1, 2]}"#)
                 .unwrap();
             let output = value.to_string();
             // Object key order may vary, so check components

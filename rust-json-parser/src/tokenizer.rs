@@ -32,23 +32,29 @@ impl Tokenizer {
     fn peek(&self) -> Option<char> {
         self.input.get(self.current).copied()
     }
+
     // return current char, then move forward
     fn advance(&mut self) -> Option<char> {
         let token = self.input.get(self.current).copied();
         self.current += 1;
         token
     }
-    // check if we've consumed all input
-    fn is_at_end(&self) -> bool {
-        self.current >= self.input.len()
+
+    // combined method that peeks and advances in one step to address the PR feedback
+    fn advance_if(&mut self, predicate: impl Fn(char) -> bool) -> Option<char> {
+        if self.peek().is_some_and(&predicate) {
+            self.advance()
+        } else {
+            None
+        }
     }
 
     // === tokenizer helper functions ===
     fn read_keyword(&mut self, ch: char, token_start: usize) -> Result<Token, JsonError> {
         let mut word = String::from(ch);
 
-        while self.peek().is_some_and(|ch| ch.is_ascii_alphabetic()) {
-            word.push(self.advance().unwrap());
+        while let Some(ch) = self.advance_if(|ch| ch.is_ascii_alphabetic()) {
+            word.push(ch);
         }
         match word.as_str() {
             "true" => Ok(Token::Boolean(true)),
@@ -64,11 +70,11 @@ impl Tokenizer {
 
     fn read_digit(&mut self, ch: char, token_start: usize) -> Result<Token, JsonError> {
         let mut num_str = String::from(ch);
-        while self
-            .peek()
-            .is_some_and(|ch| matches!(ch, '0'..='9' | '.' | 'E' | 'e' | '+' | '-'))
+
+        while let Some(ch) =
+            self.advance_if(|ch| matches!(ch, '0'..='9' | '.' | 'E' | 'e' | '+' | '-'))
         {
-            num_str.push(self.advance().unwrap());
+            num_str.push(ch);
         }
         match num_str.parse::<f64>() {
             Ok(num_parsed) => Ok(Token::Number(num_parsed)),
@@ -101,8 +107,8 @@ impl Tokenizer {
                                 let code_point =
                                     u32::from_str_radix(&hex_str, 16).map_err(|_| {
                                         JsonError::InvalidUnicode {
-                                            sequence: hex_str.clone(), // need to clone because I use hex_str below
-                                            position: token_start,
+                                            sequence: hex_str.clone(),  // need to clone because I use hex_str below
+                                            position: self.current - 2, // includes the \ in the position
                                         }
                                     })?;
                                 // create char from Unicode, returns Option
@@ -110,23 +116,27 @@ impl Tokenizer {
                                 let ch = char::from_u32(code_point).ok_or(
                                     JsonError::InvalidUnicode {
                                         sequence: hex_str,
-                                        position: token_start,
+                                        position: self.current - 2,
                                     },
                                 )?;
                                 self.current += 4;
                                 content.push(ch);
                             }
                             None => {
+                                let remaining: String = self.input[self.current..]
+                                    .iter()
+                                    .take_while(|ch| ch.is_ascii_hexdigit()) // only take the hex digits
+                                    .collect();
                                 return Err(JsonError::InvalidUnicode {
-                                    sequence: self.input[self.current..].iter().collect(),
-                                    position: token_start,
+                                    sequence: remaining,
+                                    position: self.current - 2,
                                 });
                             }
                         },
                         ch => {
                             return Err(JsonError::InvalidEscape {
                                 char: ch,
-                                position: token_start,
+                                position: self.current - 2,
                             });
                         }
                     },
