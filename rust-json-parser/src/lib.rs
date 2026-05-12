@@ -22,11 +22,12 @@ mod tests {
     #[test]
     fn test_integration() -> Result<()> {
         // Test the full parsing pipeline
-        assert_eq!(JsonParser::new("42")?.parse()?, JsonValue::Number(42.0));
-        assert_eq!(JsonParser::new("true")?.parse()?, JsonValue::Boolean(true));
-        assert_eq!(JsonParser::new("null")?.parse()?, JsonValue::Null);
+        let mut parser = JsonParser::new();
+        assert_eq!(parser.parse("42")?, JsonValue::Number(42.0));
+        assert_eq!(parser.parse("true")?, JsonValue::Boolean(true));
+        assert_eq!(parser.parse("null")?, JsonValue::Null);
         assert_eq!(
-            JsonParser::new(r#""hello""#)?.parse()?,
+            parser.parse(r#""hello""#)?,
             JsonValue::String("hello".to_string())
         );
         Ok(())
@@ -35,7 +36,8 @@ mod tests {
     #[test]
     fn test_error_propagation() {
         // Test that errors propagate properly with correct details
-        let result = JsonParser::new("@invalid@");
+        let mut parser = JsonParser::new();
+        let result = parser.parse("@invalid@");
         assert!(result.is_err());
 
         // Validate error details through pattern matching
