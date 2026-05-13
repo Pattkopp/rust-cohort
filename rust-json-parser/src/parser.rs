@@ -122,18 +122,30 @@ impl JsonParser {
                             }
                         }
                     }
-                    t => {
+                    Some(t) => {
                         return Err(JsonError::UnexpectedToken {
                             expected: "colon as separator for an object".to_string(),
                             found: format!("{:?}", t),
                             position: self.current,
                         });
                     }
+                    None => {
+                        return Err(JsonError::UnexpectedEndOfInput {
+                            expected: "colon as separator for an object".to_string(),
+                            position: self.current,
+                        });
+                    }
                 },
-                t => {
+                Some(t) => {
                     return Err(JsonError::UnexpectedToken {
                         expected: "string as key for an object".to_string(),
                         found: format!("{:?}", t),
+                        position: self.current,
+                    });
+                }
+                None => {
+                    return Err(JsonError::UnexpectedEndOfInput {
+                        expected: "string as key for an object".to_string(),
                         position: self.current,
                     });
                 }
@@ -337,9 +349,7 @@ mod tests {
 
         #[test]
         fn test_parse_nested_arrays() {
-            let value = JsonParser::new()
-                .parse("[[1, 2], [3, 4]]")
-                .unwrap();
+            let value = JsonParser::new().parse("[[1, 2], [3, 4]]").unwrap();
             let expected = JsonValue::Array(vec![
                 JsonValue::Array(vec![JsonValue::Number(1.0), JsonValue::Number(2.0)]),
                 JsonValue::Array(vec![JsonValue::Number(3.0), JsonValue::Number(4.0)]),
@@ -383,9 +393,7 @@ mod tests {
 
         #[test]
         fn test_parse_object_single_key() {
-            let value = JsonParser::new()
-                .parse(r#"{"key": "value"}"#)
-                .unwrap();
+            let value = JsonParser::new().parse(r#"{"key": "value"}"#).unwrap();
             let mut expected = HashMap::new();
             expected.insert("key".to_string(), JsonValue::String("value".to_string()));
             assert_eq!(value, JsonValue::Object(expected));
@@ -425,9 +433,7 @@ mod tests {
 
         #[test]
         fn test_parse_array_in_object() {
-            let value = JsonParser::new()
-                .parse(r#"{"items": [1, 2, 3]}"#)
-                .unwrap();
+            let value = JsonParser::new().parse(r#"{"items": [1, 2, 3]}"#).unwrap();
             if let JsonValue::Object(obj) = value {
                 if let Some(JsonValue::Array(arr)) = obj.get("items") {
                     assert_eq!(arr.len(), 3);
@@ -441,9 +447,7 @@ mod tests {
 
         #[test]
         fn test_parse_object_in_array() {
-            let value = JsonParser::new()
-                .parse(r#"[{"a": 1}, {"b": 2}]"#)
-                .unwrap();
+            let value = JsonParser::new().parse(r#"[{"a": 1}, {"b": 2}]"#).unwrap();
             if let JsonValue::Array(arr) = value {
                 assert_eq!(arr.len(), 2);
             } else {
@@ -453,9 +457,7 @@ mod tests {
 
         #[test]
         fn test_object_accessor() {
-            let value = JsonParser::new()
-                .parse(r#"{"name": "test"}"#)
-                .unwrap();
+            let value = JsonParser::new().parse(r#"{"name": "test"}"#).unwrap();
             let obj = value.as_object().unwrap();
             assert_eq!(obj.len(), 1);
         }
