@@ -84,68 +84,38 @@ impl JsonParser {
             return Ok(JsonValue::Object(obj));
         }
         loop {
-            match self.advance() {
-                Some(Token::String(key)) => match self.advance() {
-                    Some(Token::Colon) => {
-                        let value = self.parse_value()?;
-                        obj.insert(key, value);
-                        match self.peek() {
-                            Some(Token::Comma) => {
-                                self.advance();
-                                match self.peek() {
-                                    Some(t @ Token::RightBrace) => {
-                                        return Err(JsonError::UnexpectedToken {
-                                            expected: "next object item".to_string(),
-                                            found: format!("{:?}", t),
-                                            position: self.current,
-                                        });
-                                    }
-                                    _ => continue,
-                                }
-                            }
-                            Some(Token::RightBrace) => {
-                                self.advance();
-                                break;
-                            }
-                            Some(t) => {
-                                return Err(JsonError::UnexpectedToken {
-                                    expected: "comma or closing brace".to_string(),
-                                    found: format!("{:?}", t),
-                                    position: self.current,
-                                });
-                            }
-                            None => {
-                                return Err(JsonError::UnexpectedEndOfInput {
-                                    expected: "comma or closing brace".to_string(),
-                                    position: self.current,
-                                });
-                            }
+            let key = self.expect_string_key()?;
+            self.expect_colon()?;
+            let value = self.parse_value()?;
+            obj.insert(key, value);
+            match self.peek() {
+                Some(Token::Comma) => {
+                    self.advance();
+                    match self.peek() {
+                        Some(t @ Token::RightBrace) => {
+                            return Err(JsonError::UnexpectedToken {
+                                expected: "next object item".to_string(),
+                                found: format!("{:?}", t),
+                                position: self.current,
+                            });
                         }
+                        _ => continue,
                     }
-                    Some(t) => {
-                        return Err(JsonError::UnexpectedToken {
-                            expected: "colon as separator for an object".to_string(),
-                            found: format!("{:?}", t),
-                            position: self.current,
-                        });
-                    }
-                    None => {
-                        return Err(JsonError::UnexpectedEndOfInput {
-                            expected: "colon as separator for an object".to_string(),
-                            position: self.current,
-                        });
-                    }
-                },
+                }
+                Some(Token::RightBrace) => {
+                    self.advance();
+                    break;
+                }
                 Some(t) => {
                     return Err(JsonError::UnexpectedToken {
-                        expected: "string as key for an object".to_string(),
+                        expected: "comma or closing brace".to_string(),
                         found: format!("{:?}", t),
                         position: self.current,
                     });
                 }
                 None => {
                     return Err(JsonError::UnexpectedEndOfInput {
-                        expected: "string as key for an object".to_string(),
+                        expected: "comma or closing brace".to_string(),
                         position: self.current,
                     });
                 }
@@ -182,6 +152,36 @@ impl JsonParser {
             None => Err(JsonError::UnexpectedEndOfInput {
                 expected: "JSON value".to_string(),
                 position: self.current - 1,
+            }),
+        }
+    }
+
+    fn expect_string_key(&mut self) -> Result<String> {
+        match self.advance() {
+            Some(Token::String(key)) => Ok(key),
+            Some(t) => Err(JsonError::UnexpectedToken {
+                expected: "string as key for an object".to_string(),
+                found: format!("{:?}", t),
+                position: self.current,
+            }),
+            None => Err(JsonError::UnexpectedEndOfInput {
+                expected: "string as key for an object".to_string(),
+                position: self.current,
+            }),
+        }
+    }
+
+    fn expect_colon(&mut self) -> Result<()> {
+        match self.advance() {
+            Some(Token::Colon) => Ok(()),
+            Some(t) => Err(JsonError::UnexpectedToken {
+                expected: "colon as separator for an object".to_string(),
+                found: format!("{:?}", t),
+                position: self.current,
+            }),
+            None => Err(JsonError::UnexpectedEndOfInput {
+                expected: "colon as separator for an object".to_string(),
+                position: self.current,
             }),
         }
     }
