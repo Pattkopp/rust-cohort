@@ -3,9 +3,6 @@ mod parser;
 mod tokenizer;
 mod value;
 
-// Re-export types - make them accessible from the top level
-// Without this: users write `use my_lib::parser::parse_json`
-// With this: users write `use my_lib::parse_json` (cleaner!)
 pub use error::JsonError;
 pub use parser::JsonParser;
 pub use tokenizer::{Token, Tokenizer};
