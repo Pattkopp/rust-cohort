@@ -35,7 +35,7 @@ impl JsonValue {
             None
         }
     }
-    pub fn as_array(&self) -> Option<&Vec<JsonValue>> {
+    pub fn as_array(&self) -> Option<&[JsonValue]> {
         if let JsonValue::Array(arr) = self {
             Some(arr)
         } else {
@@ -208,9 +208,7 @@ mod tests {
 
         #[test]
         fn test_display_nested() {
-            let value = JsonParser::new()
-                .parse(r#"{"arr": [1, 2]}"#)
-                .unwrap();
+            let value = JsonParser::new().parse(r#"{"arr": [1, 2]}"#).unwrap();
             let output = value.to_string();
             // Object key order may vary, so check components
             assert!(output.contains("\"arr\""));
