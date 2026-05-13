@@ -372,13 +372,6 @@ mod tests {
             let arr = value.as_array().unwrap();
             assert_eq!(arr.len(), 3);
         }
-
-        #[test]
-        fn test_array_get_index() {
-            let value = JsonParser::new().parse("[10, 20, 30]").unwrap();
-            assert_eq!(value.get_index(1), Some(&JsonValue::Number(20.0)));
-            assert_eq!(value.get_index(5), None);
-        }
     }
 
     mod object_tests {

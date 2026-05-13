@@ -42,13 +42,6 @@ impl JsonValue {
             None
         }
     }
-    pub fn get_index(&self, index: usize) -> Option<&JsonValue> {
-        if let Some(arr) = self.as_array() {
-            arr.get(index)
-        } else {
-            None
-        }
-    }
     pub fn as_object(&self) -> Option<&HashMap<String, JsonValue>> {
         if let JsonValue::Object(obj) = self {
             Some(obj)
