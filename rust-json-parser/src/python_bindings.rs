@@ -1,7 +1,7 @@
 // src/python_bindings.rs
 use crate::{JsonError, JsonValue};
-use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
+use pyo3::{IntoPyObjectExt, prelude::*};
 
 // Type conversion: Rust to Python
 impl<'py> IntoPyObject<'py> for JsonValue {
@@ -9,7 +9,15 @@ impl<'py> IntoPyObject<'py> for JsonValue {
     type Output = Bound<'py, Self::Target>;
     type Error = PyErr;
 
-    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> { /* ... */
+    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+        match self {
+            JsonValue::Null => Ok(py.None().into_bound(py)),
+            JsonValue::Boolean(b) => Ok(b.into_bound_py_any(py)?), // https://docs.rs/pyo3/latest/pyo3/conversion/trait.IntoPyObjectExt.html
+            JsonValue::Number(n) => Ok(n.into_bound_py_any(py)?),
+            JsonValue::String(s) => Ok(s.into_bound_py_any(py)?),
+            JsonValue::Array(arr) => Ok(arr.into_bound_py_any(py)?),
+            JsonValue::Object(obj) => Ok(obj.into_bound_py_any(py)?),
+        }
     }
 }
 
