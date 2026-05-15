@@ -1,7 +1,7 @@
 import pytest
 
 # Import will fail until you build with maturin
-# from rust_json_parser import parse_json, parse_json_file, dumps
+from rust_json_parser import parse_json, parse_json_file, dumps
 
 
 class TestBasicParsing:
