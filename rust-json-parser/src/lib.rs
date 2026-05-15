@@ -12,6 +12,9 @@ pub use value::JsonValue;
 // Users can write Result<JsonValue> instead of std::result::Result<JsonValue, JsonError>
 pub type Result<T> = std::result::Result<T, JsonError>;
 
+#[cfg(feature = "python")]
+mod python_bindings;
+
 #[cfg(test)]
 mod tests {
     use super::*;
