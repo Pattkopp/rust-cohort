@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 // src/python_bindings.rs
 use crate::{JsonError, JsonParser, JsonValue};
 use pyo3::exceptions::{PyIOError, PyValueError};
@@ -49,7 +51,50 @@ fn dumps(obj: &Bound<PyAny>, indent: Option<usize>) -> PyResult<String> {
 
 // Helper (not exposed to Python)
 fn py_to_json_value(obj: &Bound<PyAny>) -> PyResult<JsonValue> {
-    todo!()
+    // 1. Check None first
+    if obj.is_none() {
+        return Ok(JsonValue::Null);
+    }
+
+    // 2. Check bool before numbers (critical!)
+    if let Ok(b) = obj.extract::<bool>() {
+        return Ok(JsonValue::Boolean(b));
+    }
+
+    // 3. Check numbers
+    if let Ok(n) = obj.extract::<f64>() {
+        return Ok(JsonValue::Number(n));
+    }
+
+    // 4. Check string
+    if let Ok(s) = obj.extract::<String>() {
+        return Ok(JsonValue::String(s));
+    }
+
+    // 5. Check list (recurse on elements)
+    if let Ok(list) = obj.cast::<PyList>() {
+        let mut arr = Vec::new();
+        for item in list.iter() {
+            arr.push(py_to_json_value(&item)?); // Recursive call
+        }
+        return Ok(JsonValue::Array(arr));
+    }
+
+    // 6. Check dict (recurse on values)
+    if let Ok(dict) = obj.cast::<PyDict>() {
+        let mut map = HashMap::new();
+        for (k, v) in dict.iter() {
+            let k = k.extract::<String>()?;
+            let v = py_to_json_value(&v)?;
+            map.insert(k, v);
+        }
+        return Ok(JsonValue::Object(map));
+    }
+
+    // 7. Unsupported type
+    Err(PyValueError::new_err(
+        "Unsupported type for JSON conversion",
+    ))
 }
 
 // Module registration
