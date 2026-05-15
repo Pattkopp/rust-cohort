@@ -38,7 +38,7 @@ fn parse_json<'py>(py: Python<'py>, input: &str) -> PyResult<Bound<'py, PyAny>> 
 
 #[pyfunction]
 fn parse_json_file<'py>(py: Python<'py>, path: &str) -> PyResult<Bound<'py, PyAny>> {
-    todo!()
+    parse_json(py, &std::fs::read_to_string(path)?)
 }
 
 #[pyfunction]
