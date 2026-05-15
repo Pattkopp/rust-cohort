@@ -56,6 +56,47 @@ impl JsonValue {
             None
         }
     }
+    pub fn pretty_print(&self, indent: usize) -> String {
+        const INITIAL_DEPTH: usize = 0;
+        self.pretty_print_recursive(indent, INITIAL_DEPTH)
+    }
+    fn pretty_print_recursive(&self, indent: usize, depth: usize) -> String {
+        let current_indent = " ".repeat(indent * depth);
+        let child_indent = " ".repeat(indent * (depth + 1));
+        match self {
+            JsonValue::Null => self.to_string(),
+            JsonValue::Boolean(_) => self.to_string(),
+            JsonValue::Number(_) => self.to_string(),
+            JsonValue::String(_) => self.to_string(),
+            JsonValue::Array(json_values) => {
+                let elements: Vec<String> = json_values
+                    .iter()
+                    .map(|val| {
+                        format!(
+                            "{}{}",
+                            child_indent,
+                            val.pretty_print_recursive(indent, depth + 1)
+                        )
+                    })
+                    .collect();
+                format!("[\n{}\n{}]", elements.join(",\n"), current_indent)
+            }
+            JsonValue::Object(hash_map) => {
+                let map: Vec<String> = hash_map
+                    .iter()
+                    .map(|(key, val)| {
+                        format!(
+                            "{}\"{}\": {}",
+                            child_indent,
+                            key,
+                            val.pretty_print_recursive(indent, depth + 1)
+                        )
+                    })
+                    .collect();
+                format!("{{\n{}\n{}}}", map.join(",\n"), current_indent)
+            }
+        }
+    }
 }
 
 impl fmt::Display for JsonValue {

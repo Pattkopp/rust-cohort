@@ -1,10 +1,8 @@
-use std::collections::HashMap;
-
-// src/python_bindings.rs
 use crate::{JsonError, JsonParser, JsonValue};
 use pyo3::exceptions::{PyIOError, PyValueError};
 use pyo3::types::{PyDict, PyList};
 use pyo3::{IntoPyObjectExt, prelude::*};
+use std::collections::HashMap;
 
 // Type conversion: Rust to Python
 impl<'py> IntoPyObject<'py> for JsonValue {
@@ -46,7 +44,11 @@ fn parse_json_file<'py>(py: Python<'py>, path: &str) -> PyResult<Bound<'py, PyAn
 #[pyfunction]
 #[pyo3(signature = (obj, indent=None))]
 fn dumps(obj: &Bound<PyAny>, indent: Option<usize>) -> PyResult<String> {
-    todo!()
+    let obj = py_to_json_value(obj)?;
+    match indent {
+        Some(n) => Ok(obj.pretty_print(n)),
+        _ => Ok(obj.to_string()),
+    }
 }
 
 // Helper (not exposed to Python)
