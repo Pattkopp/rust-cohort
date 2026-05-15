@@ -1,5 +1,6 @@
 // src/python_bindings.rs
 use crate::{JsonError, JsonValue};
+use pyo3::exceptions::{PyIOError, PyValueError};
 use pyo3::types::{PyDict, PyList};
 use pyo3::{IntoPyObjectExt, prelude::*};
 
@@ -23,7 +24,8 @@ impl<'py> IntoPyObject<'py> for JsonValue {
 
 // Type conversion: Rust errors to Python exceptions
 impl From<JsonError> for PyErr {
-    fn from(err: JsonError) -> PyErr { /* ... */
+    fn from(err: JsonError) -> PyErr {
+        PyValueError::new_err(err.to_string()) // we only have Value errors and can use the Display trait
     }
 }
 
