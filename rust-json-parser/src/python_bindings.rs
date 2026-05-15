@@ -1,5 +1,5 @@
 use crate::{JsonError, JsonParser, JsonValue};
-use pyo3::exceptions::{PyIOError, PyValueError};
+use pyo3::exceptions::PyValueError;
 use pyo3::types::{PyDict, PyList};
 use pyo3::{IntoPyObjectExt, prelude::*};
 use std::collections::HashMap;
