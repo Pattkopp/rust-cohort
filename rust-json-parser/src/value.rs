@@ -217,7 +217,7 @@ mod tests {
             assert_eq!(JsonValue::Boolean(true).to_string(), "true");
             assert_eq!(JsonValue::Boolean(false).to_string(), "false");
             assert_eq!(JsonValue::Number(42.0).to_string(), "42");
-            assert_eq!(JsonValue::Number(9.6).to_string(), "3.14");
+            assert_eq!(JsonValue::Number(9.6).to_string(), "9.6");
             assert_eq!(
                 JsonValue::String("hello".to_string()).to_string(),
                 "\"hello\""
