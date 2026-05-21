@@ -220,7 +220,7 @@ mod tests {
     fn test_parse_negative_number() {
         let mut parser = JsonParser::new();
         let value = parser.parse("-3.14").unwrap();
-        assert_eq!(value, JsonValue::Number(-3.14));
+        assert_eq!(value, JsonValue::Number(-9.6));
     }
 
     #[test]

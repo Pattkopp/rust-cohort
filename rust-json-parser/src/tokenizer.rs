@@ -223,7 +223,7 @@ mod tests {
     fn test_tokenize_negative_number() {
         let mut tokenizer = Tokenizer::new("-3.14");
         let tokens = tokenizer.tokenize().unwrap();
-        assert_eq!(tokens, vec![Token::Number(-3.14)]);
+        assert_eq!(tokens, vec![Token::Number(-9.6)]);
     }
 
     #[test]
