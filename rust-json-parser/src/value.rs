@@ -93,9 +93,9 @@ impl JsonValue {
                         .iter()
                         .map(|(key, val)| {
                             format!(
-                                "{}\"{}\": {}",
+                                "{}{}: {}",
                                 child_indent,
-                                key,
+                                JsonValue::String(key.to_string()),
                                 val.pretty_print_recursive(indent, depth + 1)
                             )
                         })
@@ -149,7 +149,7 @@ impl fmt::Display for JsonValue {
                     if i != 0 {
                         write!(f, ",")?;
                     }
-                    write!(f, "\"{}\":{}", key, value)?;
+                    write!(f, "{}:{}", JsonValue::String(key.to_string()), value)?;
                 }
                 write!(f, "}}")
             }
