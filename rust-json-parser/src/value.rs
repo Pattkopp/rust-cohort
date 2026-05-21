@@ -56,6 +56,55 @@ impl JsonValue {
             None
         }
     }
+    pub fn pretty_print(&self, indent: usize) -> String {
+        const INITIAL_DEPTH: usize = 0;
+        self.pretty_print_recursive(indent, INITIAL_DEPTH)
+    }
+    fn pretty_print_recursive(&self, indent: usize, depth: usize) -> String {
+        let current_indent = " ".repeat(indent * depth);
+        let child_indent = " ".repeat(indent * (depth + 1));
+        match self {
+            JsonValue::Null
+            | JsonValue::Boolean(_)
+            | JsonValue::Number(_)
+            | JsonValue::String(_) => self.to_string(),
+            JsonValue::Array(json_values) => {
+                if json_values.is_empty() {
+                    "[]".to_string()
+                } else {
+                    let elements: Vec<String> = json_values
+                        .iter()
+                        .map(|val| {
+                            format!(
+                                "{}{}",
+                                child_indent,
+                                val.pretty_print_recursive(indent, depth + 1)
+                            )
+                        })
+                        .collect();
+                    format!("[\n{}\n{}]", elements.join(",\n"), current_indent)
+                }
+            }
+            JsonValue::Object(hash_map) => {
+                if hash_map.is_empty() {
+                    "{}".to_string()
+                } else {
+                    let map: Vec<String> = hash_map
+                        .iter()
+                        .map(|(key, val)| {
+                            format!(
+                                "{}{}: {}",
+                                child_indent,
+                                JsonValue::String(key.to_string()),
+                                val.pretty_print_recursive(indent, depth + 1)
+                            )
+                        })
+                        .collect();
+                    format!("{{\n{}\n{}}}", map.join(",\n"), current_indent)
+                }
+            }
+        }
+    }
 }
 
 impl fmt::Display for JsonValue {
@@ -100,7 +149,7 @@ impl fmt::Display for JsonValue {
                     if i != 0 {
                         write!(f, ",")?;
                     }
-                    write!(f, "\"{}\":{}", key, value)?;
+                    write!(f, "{}:{}", JsonValue::String(key.to_string()), value)?;
                 }
                 write!(f, "}}")
             }
@@ -168,7 +217,7 @@ mod tests {
             assert_eq!(JsonValue::Boolean(true).to_string(), "true");
             assert_eq!(JsonValue::Boolean(false).to_string(), "false");
             assert_eq!(JsonValue::Number(42.0).to_string(), "42");
-            assert_eq!(JsonValue::Number(3.14).to_string(), "3.14");
+            assert_eq!(JsonValue::Number(9.6).to_string(), "9.6");
             assert_eq!(
                 JsonValue::String("hello".to_string()).to_string(),
                 "\"hello\""

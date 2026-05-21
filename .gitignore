@@ -1,2 +1,7 @@
 target/
 scraps/
+.env
+.venv/
+__pycache__/
+*.so
+*.pyd
