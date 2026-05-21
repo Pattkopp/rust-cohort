@@ -64,10 +64,10 @@ impl JsonValue {
         let current_indent = " ".repeat(indent * depth);
         let child_indent = " ".repeat(indent * (depth + 1));
         match self {
-            JsonValue::Null => self.to_string(),
-            JsonValue::Boolean(_) => self.to_string(),
-            JsonValue::Number(_) => self.to_string(),
-            JsonValue::String(_) => self.to_string(),
+            JsonValue::Null
+            | JsonValue::Boolean(_)
+            | JsonValue::Number(_)
+            | JsonValue::String(_) => self.to_string(),
             JsonValue::Array(json_values) => {
                 let elements: Vec<String> = json_values
                     .iter()
