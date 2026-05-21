@@ -69,31 +69,39 @@ impl JsonValue {
             | JsonValue::Number(_)
             | JsonValue::String(_) => self.to_string(),
             JsonValue::Array(json_values) => {
-                let elements: Vec<String> = json_values
-                    .iter()
-                    .map(|val| {
-                        format!(
-                            "{}{}",
-                            child_indent,
-                            val.pretty_print_recursive(indent, depth + 1)
-                        )
-                    })
-                    .collect();
-                format!("[\n{}\n{}]", elements.join(",\n"), current_indent)
+                if json_values.is_empty() {
+                    "[]".to_string()
+                } else {
+                    let elements: Vec<String> = json_values
+                        .iter()
+                        .map(|val| {
+                            format!(
+                                "{}{}",
+                                child_indent,
+                                val.pretty_print_recursive(indent, depth + 1)
+                            )
+                        })
+                        .collect();
+                    format!("[\n{}\n{}]", elements.join(",\n"), current_indent)
+                }
             }
             JsonValue::Object(hash_map) => {
-                let map: Vec<String> = hash_map
-                    .iter()
-                    .map(|(key, val)| {
-                        format!(
-                            "{}\"{}\": {}",
-                            child_indent,
-                            key,
-                            val.pretty_print_recursive(indent, depth + 1)
-                        )
-                    })
-                    .collect();
-                format!("{{\n{}\n{}}}", map.join(",\n"), current_indent)
+                if hash_map.is_empty() {
+                    "{}".to_string()
+                } else {
+                    let map: Vec<String> = hash_map
+                        .iter()
+                        .map(|(key, val)| {
+                            format!(
+                                "{}\"{}\": {}",
+                                child_indent,
+                                key,
+                                val.pretty_print_recursive(indent, depth + 1)
+                            )
+                        })
+                        .collect();
+                    format!("{{\n{}\n{}}}", map.join(",\n"), current_indent)
+                }
             }
         }
     }
