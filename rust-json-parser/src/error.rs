@@ -1,26 +1,75 @@
 use std::fmt;
 
+/// Errors produced during JSON tokenization or parsing.
+///
+/// Every variant carries a `position` field indicating the byte offset in the
+/// input where the error was detected. This makes error messages actionable —
+/// the caller can point the user to the exact location of the problem.
+///
+/// `JsonError` implements [`std::fmt::Display`] and [`std::error::Error`],
+/// so it integrates with Rust's standard error-handling ecosystem.
+///
+/// # Examples
+///
+/// ```rust
+/// use rust_json_parser::{JsonParser, JsonError};
+///
+/// let mut parser = JsonParser::new();
+/// let err = parser.parse("@").unwrap_err();
+///
+/// assert!(matches!(err, JsonError::UnexpectedToken { position: 0, .. }));
+/// println!("{err}"); // "unexpected token at position 0: expected valid JSON token, found @"
+/// ```
 #[derive(Debug, Clone, PartialEq)]
 pub enum JsonError {
+    /// The parser encountered a token it did not expect at this point in the grammar.
+    ///
+    /// For example, a number where a string key was required, or an invalid
+    /// character like `@` at the start of input.
     UnexpectedToken {
+        /// What the parser expected at this position.
         expected: String,
+        /// What was actually found.
         found: String,
+        /// Byte offset in the input.
         position: usize,
     },
+    /// The input ended before the parser finished reading a value.
+    ///
+    /// Common causes: unclosed strings, arrays, or objects.
     UnexpectedEndOfInput {
+        /// What the parser was still expecting when input ran out.
         expected: String,
+        /// Byte offset where the unexpected end was detected.
         position: usize,
     },
+    /// A numeric literal could not be parsed as a valid `f64`.
+    ///
+    /// Triggered by malformed numbers like `12.34.56` or `--5`.
     InvalidNumber {
+        /// The raw text of the invalid number.
         value: String,
+        /// Byte offset where the number started.
         position: usize,
     },
+    /// An unrecognized escape sequence was found inside a string.
+    ///
+    /// JSON permits only `\"`, `\\`, `\/`, `\b`, `\f`, `\n`, `\r`, `\t`,
+    /// and `\uXXXX`. Anything else (e.g. `\q`) produces this error.
     InvalidEscape {
+        /// The character after the backslash.
         char: char,
+        /// Byte offset of the backslash.
         position: usize,
     },
+    /// A `\uXXXX` escape contained invalid or insufficient hex digits.
+    ///
+    /// Triggered when fewer than four hex digits follow `\u`, or when the
+    /// digits do not form a valid Unicode code point.
     InvalidUnicode {
+        /// The hex sequence that was found (may be fewer than 4 characters).
         sequence: String,
+        /// Byte offset of the backslash.
         position: usize,
     },
 }
