@@ -1,25 +1,45 @@
 use crate::error::JsonError;
 
+/// A single token produced by the [`Tokenizer`].
+///
+/// Tokens represent the structural and literal elements of a JSON document.
+/// Most users do not interact with tokens directly — [`crate::JsonParser`]
+/// handles tokenization internally.
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
+    /// `{`
     LeftBrace,
+    /// `}`
     RightBrace,
+    /// `[`
     LeftBracket,
+    /// `]`
     RightBracket,
+    /// `,`
     Comma,
+    /// `:`
     Colon,
+    /// A JSON string literal, with escape sequences resolved.
     String(String),
-    Number(f64), // https://www.json.org/json-en.html
+    /// A JSON number, stored as `f64` per the [JSON spec](https://www.json.org/json-en.html).
+    Number(f64),
+    /// `true` or `false`.
     Boolean(bool),
+    /// `null`.
     Null,
 }
 
+/// Converts a JSON input string into a sequence of [`Token`]s.
+///
+/// The tokenizer is used internally by [`crate::JsonParser`]. It handles
+/// whitespace, string escapes (including `\uXXXX`), numbers, booleans, and null.
 pub struct Tokenizer {
     input: Vec<char>,
     current: usize,
 }
 
 impl Tokenizer {
+    /// Creates a new tokenizer for the given input string.
     pub fn new(input: &str) -> Self {
         Self {
             input: input.chars().collect(),
@@ -159,6 +179,12 @@ impl Tokenizer {
         Ok(Token::String(content))
     }
 
+    /// Consumes the input and returns the full list of tokens.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`JsonError`] if the input contains invalid tokens,
+    /// bad escape sequences, or malformed numbers.
     pub fn tokenize(&mut self) -> Result<Vec<Token>, JsonError> {
         let mut tokens = Vec::new();
         while let Some(ch) = self.advance() {

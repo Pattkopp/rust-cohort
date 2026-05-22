@@ -24,6 +24,8 @@
 //! assert_eq!(value.get("age"), Some(&JsonValue::Number(96.0)));
 //! ```
 
+#![warn(missing_docs)]
+
 mod error;
 mod parser;
 mod tokenizer;
@@ -34,8 +36,7 @@ pub use parser::JsonParser;
 pub use tokenizer::{Token, Tokenizer};
 pub use value::JsonValue;
 
-// Type alias for convenience
-// Users can write Result<JsonValue> instead of std::result::Result<JsonValue, JsonError>
+/// Convenience alias for `std::result::Result<T, JsonError>`.
 pub type Result<T> = std::result::Result<T, JsonError>;
 
 #[cfg(feature = "python")]
