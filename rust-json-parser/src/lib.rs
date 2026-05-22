@@ -1,3 +1,29 @@
+//! A JSON parser library built from scratch in Rust.
+//!
+//! `rust_json_parser` provides a complete JSON parser that tokenizes and parses
+//! JSON strings into a structured [`JsonValue`] type. It supports all JSON data types
+//! including nested objects and arrays, with detailed error reporting via [`JsonError`].
+//!
+//! # Features
+//!
+//! - Full JSON spec support: objects, arrays, strings, numbers, booleans, and null
+//! - Unicode escape sequences (`\uXXXX`)
+//! - Detailed error messages with position information
+//! - Pretty-printing with configurable indentation
+//! - Python bindings via PyO3 (optional `python` feature)
+//!
+//! # Quick Start
+//!
+//! ```rust
+//! use rust_json_parser::{JsonParser, JsonValue};
+//!
+//! let mut parser = JsonParser::new();
+//! let value = parser.parse(r#"{"name": "Jochen", "age": 96}"#).unwrap();
+//!
+//! assert_eq!(value.get("name"), Some(&JsonValue::String("Jochen".to_string())));
+//! assert_eq!(value.get("age"), Some(&JsonValue::Number(96.0)));
+//! ```
+
 mod error;
 mod parser;
 mod tokenizer;
