@@ -1,12 +1,39 @@
 use std::{collections::HashMap, fmt};
 
+/// Represents a JSON value.
+///
+/// Each variant corresponds to one of the six JSON data types defined in
+/// [RFC 8259](https://datatracker.ietf.org/doc/html/rfc8259).
+/// Use [`crate::JsonParser`] to produce a `JsonValue` from a JSON string,
+/// then inspect or extract data using the accessor methods below.
+///
+/// # Examples
+///
+/// ```rust
+/// use rust_json_parser::{JsonParser, JsonValue};
+///
+/// let mut parser = JsonParser::new();
+///
+/// // Each JSON type maps to a JsonValue variant
+/// assert_eq!(parser.parse("null").unwrap(), JsonValue::Null);
+/// assert_eq!(parser.parse("true").unwrap(), JsonValue::Boolean(true));
+/// assert_eq!(parser.parse("42").unwrap(), JsonValue::Number(42.0));
+/// assert_eq!(parser.parse(r#""hello""#).unwrap(), JsonValue::String("hello".to_string()));
+/// assert_eq!(parser.parse("[1, 2]").unwrap(), JsonValue::Array(vec![JsonValue::Number(1.0), JsonValue::Number(2.0)]));
+/// ```
 #[derive(Debug, Clone, PartialEq)]
 pub enum JsonValue {
+    /// JSON `null`.
     Null,
+    /// JSON boolean (`true` or `false`).
     Boolean(bool),
+    /// JSON number, stored as an `f64` per the JSON specification.
     Number(f64),
+    /// JSON string, with escape sequences already resolved.
     String(String),
+    /// JSON array — an ordered sequence of [`JsonValue`]s.
     Array(Vec<JsonValue>),
+    /// JSON object — a map of string keys to [`JsonValue`]s.
     Object(HashMap<String, JsonValue>),
 }
 
