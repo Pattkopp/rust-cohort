@@ -38,9 +38,27 @@ pub enum JsonValue {
 }
 
 impl JsonValue {
+    /// Returns `true` if this value is `JsonValue::Null`.
+    ///
+    /// ```rust
+    /// use rust_json_parser::JsonValue;
+    ///
+    /// assert!(JsonValue::Null.is_null());
+    /// assert!(!JsonValue::Boolean(false).is_null());
+    /// ```
     pub fn is_null(&self) -> bool {
         matches!(self, JsonValue::Null)
     }
+
+    /// If this is a `String`, returns the inner `&str`. Otherwise returns `None`.
+    ///
+    /// ```rust
+    /// use rust_json_parser::JsonValue;
+    ///
+    /// let val = JsonValue::String("hello".to_string());
+    /// assert_eq!(val.as_str(), Some("hello"));
+    /// assert_eq!(JsonValue::Null.as_str(), None);
+    /// ```
     pub fn as_str(&self) -> Option<&str> {
         if let JsonValue::String(s) = self {
             Some(s.as_str())
@@ -48,6 +66,15 @@ impl JsonValue {
             None
         }
     }
+
+    /// If this is a `Number`, returns the inner `f64`. Otherwise returns `None`.
+    ///
+    /// ```rust
+    /// use rust_json_parser::JsonValue;
+    ///
+    /// assert_eq!(JsonValue::Number(3.14).as_f64(), Some(3.14));
+    /// assert_eq!(JsonValue::Null.as_f64(), None);
+    /// ```
     pub fn as_f64(&self) -> Option<f64> {
         if let JsonValue::Number(f) = self {
             Some(*f)
@@ -55,6 +82,15 @@ impl JsonValue {
             None
         }
     }
+
+    /// If this is a `Boolean`, returns the inner `bool`. Otherwise returns `None`.
+    ///
+    /// ```rust
+    /// use rust_json_parser::JsonValue;
+    ///
+    /// assert_eq!(JsonValue::Boolean(true).as_bool(), Some(true));
+    /// assert_eq!(JsonValue::Null.as_bool(), None);
+    /// ```
     pub fn as_bool(&self) -> Option<bool> {
         if let JsonValue::Boolean(b) = self {
             Some(*b)
@@ -62,6 +98,18 @@ impl JsonValue {
             None
         }
     }
+
+    /// If this is an `Array`, returns a slice of the elements. Otherwise returns `None`.
+    ///
+    /// ```rust
+    /// use rust_json_parser::{JsonParser, JsonValue};
+    ///
+    /// let mut parser = JsonParser::new();
+    /// let value = parser.parse("[1, 2, 3]").unwrap();
+    ///
+    /// assert_eq!(value.as_array().unwrap().len(), 3);
+    /// assert_eq!(JsonValue::Null.as_array(), None);
+    /// ```
     pub fn as_array(&self) -> Option<&[JsonValue]> {
         if let JsonValue::Array(arr) = self {
             Some(arr)
@@ -69,6 +117,18 @@ impl JsonValue {
             None
         }
     }
+
+    /// If this is an `Object`, returns a reference to the underlying [`HashMap`]. Otherwise returns `None`.
+    ///
+    /// ```rust
+    /// use rust_json_parser::{JsonParser, JsonValue};
+    ///
+    /// let mut parser = JsonParser::new();
+    /// let value = parser.parse(r#"{"a": 1}"#).unwrap();
+    ///
+    /// let obj = value.as_object().unwrap();
+    /// assert!(obj.contains_key("a"));
+    /// ```
     pub fn as_object(&self) -> Option<&HashMap<String, JsonValue>> {
         if let JsonValue::Object(obj) = self {
             Some(obj)
@@ -76,6 +136,19 @@ impl JsonValue {
             None
         }
     }
+
+    /// Looks up a key in a JSON object. Returns `None` if this is not an object
+    /// or if the key does not exist.
+    ///
+    /// ```rust
+    /// use rust_json_parser::{JsonParser, JsonValue};
+    ///
+    /// let mut parser = JsonParser::new();
+    /// let value = parser.parse(r#"{"name": "Alice"}"#).unwrap();
+    ///
+    /// assert_eq!(value.get("name"), Some(&JsonValue::String("Alice".to_string())));
+    /// assert_eq!(value.get("missing"), None);
+    /// ```
     pub fn get(&self, key: &str) -> Option<&JsonValue> {
         if let Some(map) = self.as_object() {
             map.get(key)
@@ -83,6 +156,18 @@ impl JsonValue {
             None
         }
     }
+
+    /// Returns a pretty-printed JSON string with the given indentation width.
+    ///
+    /// ```rust
+    /// use rust_json_parser::{JsonParser, JsonValue};
+    ///
+    /// let mut parser = JsonParser::new();
+    /// let value = parser.parse(r#"{"a": [1, 2]}"#).unwrap();
+    ///
+    /// let output = value.pretty_print(2);
+    /// assert!(output.contains('\n'));
+    /// ```
     pub fn pretty_print(&self, indent: usize) -> String {
         const INITIAL_DEPTH: usize = 0;
         self.pretty_print_recursive(indent, INITIAL_DEPTH)

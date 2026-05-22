@@ -30,17 +30,44 @@ impl From<JsonError> for PyErr {
 }
 
 // Python-callable functions
+
+/// Parses a JSON string and returns the corresponding Python object.
+///
+/// Converts the Rust [`JsonValue`] result into native Python types:
+/// objects become `dict`, arrays become `list`, etc.
+///
+/// # Errors
+///
+/// Raises `ValueError` in Python if the input is not valid JSON.
 #[pyfunction]
 // changed the signature because of https://github.com/PyO3/pyo3/discussions/4826
 fn parse_json<'py>(py: Python<'py>, input: &str) -> PyResult<Bound<'py, PyAny>> {
     JsonParser::new().parse(input)?.into_bound_py_any(py)
 }
 
+/// Reads a file at `path` and parses its contents as JSON.
+///
+/// This is a convenience wrapper that reads the file then delegates
+/// to [`parse_json()`].
+///
+/// # Errors
+///
+/// Raises `ValueError` for invalid JSON, or `OSError` if the file
+/// cannot be read.
 #[pyfunction]
 fn parse_json_file<'py>(py: Python<'py>, path: &str) -> PyResult<Bound<'py, PyAny>> {
     parse_json(py, &std::fs::read_to_string(path)?)
 }
 
+/// Serializes a Python object to a JSON string.
+///
+/// Accepts any combination of `dict`, `list`, `str`, `int`, `float`,
+/// `bool`, and `None`. Pass `indent` for pretty-printed output.
+///
+/// # Errors
+///
+/// Raises `ValueError` if the object contains types that cannot be
+/// represented in JSON.
 #[pyfunction]
 #[pyo3(signature = (obj, indent=None))]
 fn dumps(obj: &Bound<PyAny>, indent: Option<usize>) -> PyResult<String> {

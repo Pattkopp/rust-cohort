@@ -7,6 +7,22 @@ use crate::value::JsonValue;
 // Result type alias for convenience
 type Result<T> = std::result::Result<T, JsonError>;
 
+/// A recursive descent JSON parser.
+///
+/// `JsonParser` tokenizes a JSON string and then parses the token stream
+/// into a [`JsonValue`] tree. Create one with [`JsonParser::new()`] and
+/// reuse it across multiple [`parse()`](JsonParser::parse) calls.
+///
+/// # Examples
+///
+/// ```rust
+/// use rust_json_parser::{JsonParser, JsonValue};
+///
+/// let mut parser = JsonParser::new();
+/// let value = parser.parse(r#"[1, "two", true]"#).unwrap();
+///
+/// assert_eq!(value.as_array().unwrap().len(), 3);
+/// ```
 #[derive(Debug, PartialEq, Default)]
 pub struct JsonParser {
     tokens: Vec<Token>,
@@ -14,6 +30,7 @@ pub struct JsonParser {
 }
 
 impl JsonParser {
+    /// Creates a new parser with empty state.
     pub fn new() -> Self {
         Self::default()
     }
@@ -124,6 +141,30 @@ impl JsonParser {
         Ok(JsonValue::Object(obj))
     }
 
+    /// Parses a JSON string into a [`JsonValue`].
+    ///
+    /// The parser can be reused — each call resets internal state before
+    /// tokenizing and parsing the new input.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use rust_json_parser::{JsonParser, JsonValue};
+    ///
+    /// let mut parser = JsonParser::new();
+    /// assert_eq!(parser.parse("42").unwrap(), JsonValue::Number(42.0));
+    /// assert_eq!(parser.parse("null").unwrap(), JsonValue::Null);
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`JsonError`](crate::JsonError) if the input is not valid JSON:
+    ///
+    /// - [`UnexpectedToken`](crate::JsonError::UnexpectedToken) — invalid or misplaced token
+    /// - [`UnexpectedEndOfInput`](crate::JsonError::UnexpectedEndOfInput) — input ended too early
+    /// - [`InvalidNumber`](crate::JsonError::InvalidNumber) — malformed numeric literal
+    /// - [`InvalidEscape`](crate::JsonError::InvalidEscape) — unrecognized escape sequence
+    /// - [`InvalidUnicode`](crate::JsonError::InvalidUnicode) — bad `\uXXXX` sequence
     pub fn parse(&mut self, input: &str) -> Result<JsonValue> {
         self.tokens = Tokenizer::new(input).tokenize()?;
         self.current = 0;
