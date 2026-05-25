@@ -89,7 +89,8 @@ impl Tokenizer {
     }
 
     fn read_digit(&mut self, ch: char, token_start: usize) -> Result<Token, JsonError> {
-        let mut num_str = String::from(ch);
+        let mut num_str = String::with_capacity(20);
+        num_str.push(ch);
 
         while let Some(ch) =
             self.advance_if(|ch| matches!(ch, '0'..='9' | '.' | 'E' | 'e' | '+' | '-'))
