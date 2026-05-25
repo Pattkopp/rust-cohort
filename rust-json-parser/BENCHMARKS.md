@@ -38,3 +38,22 @@ repeated heap reallocations during number parsing.
 - citm_catalog.json improved from 7.8s → 6.5s (17% faster), gap with Python narrowed.
 - twitter.json roughly unchanged — string-heavy file, so number allocation was not the bottleneck there.
 - verysmall.json regressed slightly, likely measurement noise on a 7-byte input.
+
+## Run 3 — `String::with_capacity(64)` in `read_string` (2026-05-25)
+
+Pre-allocate the string-building buffer in `Tokenizer::read_string` to avoid
+repeated heap reallocations during string parsing.
+
+| Fixture | Size | Rust | Python json (C) | simplejson | vs json (C) | vs simplejson |
+|---|---|---|---|---|---|---|
+| verysmall.json | 7 B | 0.000308s | 0.000484s | 0.000595s | 1.57x faster | 1.93x faster |
+| twitter.json | 568 KB | 3.577701s | 2.495969s | 2.098070s | 1.43x slower | 1.71x slower |
+| citm_catalog.json | 1.7 MB | 7.277370s | 5.886443s | 6.593590s | 1.24x slower | 1.10x slower |
+| canada.json | 2.3 MB | 13.249444s | 21.023933s | 22.410327s | 1.59x faster | 1.69x faster |
+
+### Observations
+
+- twitter.json and citm_catalog.json essentially unchanged — the `read_string` pre-allocation did not produce a measurable improvement on string-heavy files.
+- canada.json slightly slower than Run 2 (13.2s vs 11.4s), likely run-to-run variance rather than a regression.
+- verysmall.json recovered to faster-than-Python, confirming Run 2's regression was measurement noise.
+- The string reallocation cost is not the primary bottleneck for these files. The next optimization target should address a different area — likely the `Vec<char>` conversion on line 45 or the token cloning in the parser.

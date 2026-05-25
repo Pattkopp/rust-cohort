@@ -107,7 +107,7 @@ impl Tokenizer {
     }
 
     fn read_string(&mut self, token_start: usize) -> Result<Token, JsonError> {
-        let mut content = String::new();
+        let mut content = String::with_capacity(64);
         loop {
             match self.advance() {
                 Some('"') => break,
