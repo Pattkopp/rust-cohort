@@ -57,3 +57,22 @@ repeated heap reallocations during string parsing.
 - canada.json slightly slower than Run 2 (13.2s vs 11.4s), likely run-to-run variance rather than a regression.
 - verysmall.json recovered to faster-than-Python, confirming Run 2's regression was measurement noise.
 - The string reallocation cost is not the primary bottleneck for these files. The next optimization target should address a different area — likely the `Vec<char>` conversion on line 45 or the token cloning in the parser.
+
+## Run 4 — `String::with_capacity(256)` in `read_string` (2026-05-25)
+
+Increased string buffer pre-allocation from 64 to 256 bytes to test whether
+larger capacity reduces reallocations for longer strings (tweets, URLs, bios).
+
+| Fixture | Size | Rust | Python json (C) | simplejson | vs json (C) | vs simplejson |
+|---|---|---|---|---|---|---|
+| verysmall.json | 7 B | 0.000280s | 0.000489s | 0.000667s | 1.75x faster | 2.38x faster |
+| twitter.json | 568 KB | 3.922787s | 2.527915s | 1.980844s | 1.55x slower | 1.98x slower |
+| citm_catalog.json | 1.7 MB | 6.941263s | 5.191806s | 5.797132s | 1.34x slower | 1.20x slower |
+| canada.json | 2.3 MB | 11.351446s | 18.338183s | 20.493925s | 1.62x faster | 1.81x faster |
+
+### Observations
+
+- twitter.json regressed from 3.58s (Run 3) to 3.92s — the larger allocation wastes memory on short strings (keys like "id", "name"), and the extra memory pressure offsets any reallocation savings.
+- Profiling confirmed that `String::push`/`reserve` chain disappeared, but `HashMap` operations in `parse_object` became the new dominant cost (6.1%).
+- canada.json stable at 11.4s, consistent with Run 2.
+- Conclusion: 256 is too large. Revert to 64 and pursue a different optimization next.
