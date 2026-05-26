@@ -96,3 +96,22 @@ Introduced lifetime annotations (`'a`) on the `Tokenizer` struct.
 - twitter.json improved slightly: 3.92s (Run 4) → 3.25s (7% better than Run 3's 3.58s).
 - citm_catalog.json improved: 6.94s (Run 4) → 6.17s, now nearly matching simplejson.
 - The canada.json regression needs profiling. Likely cause: the byte-to-char conversion in `advance()` runs millions of times for number parsing, and the `.map()` closure may not be optimizing as well as the old `.copied()` on `Vec<char>`.
+
+## Run 6 — Re-benchmark `&str` refactor under lower system load (2026-05-26)
+
+Same code as Run 5. Re-run to verify whether the canada.json regression was real
+or caused by system load during Run 5 (profiler and browser were active).
+
+| Fixture | Size | Rust | Python json (C) | simplejson | vs json (C) | vs simplejson |
+|---|---|---|---|---|---|---|
+| verysmall.json | 7 B | 0.000315s | 0.000498s | 0.000615s | 1.58x faster | 1.95x faster |
+| twitter.json | 568 KB | 3.484934s | 2.266166s | 1.943392s | 1.54x slower | 1.79x slower |
+| citm_catalog.json | 1.7 MB | 5.740152s | 4.971308s | 4.981171s | 1.15x slower | 1.15x slower |
+| canada.json | 2.3 MB | 10.585388s | 17.936120s | 19.614882s | 1.69x faster | 1.85x faster |
+
+### Observations
+
+- canada.json regression was NOT real: 10.6s here vs 31.3s in Run 5. The Run 5 measurement was inflated by system load (profiler + browser). True performance is consistent with Run 2 (11.4s) and slightly better.
+- twitter.json at 3.48s — slightly above Run 5's 3.25s, likely run-to-run variance. Still improved vs Run 4 (3.92s).
+- citm_catalog.json at 5.74s — improved from Run 5's 6.17s and Run 4's 6.94s.
+- The `&str` refactor is a net positive across all files. Next target: HashMap overhead in `parse_object` (~17% of canada.json profile).
