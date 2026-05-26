@@ -95,7 +95,7 @@ impl JsonParser {
     }
 
     fn parse_object(&mut self) -> Result<JsonValue> {
-        let mut obj = HashMap::new();
+        let mut obj = HashMap::with_capacity(16);
         if matches!(self.peek(), Some(Token::RightBrace)) {
             self.advance();
             return Ok(JsonValue::Object(obj));
