@@ -76,3 +76,23 @@ larger capacity reduces reallocations for longer strings (tweets, URLs, bios).
 - Profiling confirmed that `String::push`/`reserve` chain disappeared, but `HashMap` operations in `parse_object` became the new dominant cost (6.1%).
 - canada.json stable at 11.4s, consistent with Run 2.
 - Conclusion: 256 is too large. Revert to 64 and pursue a different optimization next.
+
+## Run 5 — Replace `Vec<char>` with `&str` in Tokenizer (2026-05-26)
+
+Eliminated the `input.chars().collect()` allocation in `Tokenizer::new`. The struct
+now borrows the input `&str` directly and uses byte-level access via `.as_bytes()`.
+Introduced lifetime annotations (`'a`) on the `Tokenizer` struct.
+
+| Fixture | Size | Rust | Python json (C) | simplejson | vs json (C) | vs simplejson |
+|---|---|---|---|---|---|---|
+| verysmall.json | 7 B | 0.000282s | 0.000513s | 0.000709s | 1.82x faster | 2.51x faster |
+| twitter.json | 568 KB | 3.252252s | 2.256309s | 1.951530s | 1.44x slower | 1.67x slower |
+| citm_catalog.json | 1.7 MB | 6.169968s | 5.151962s | 6.099023s | 1.20x slower | 1.01x slower |
+| canada.json | 2.3 MB | 31.270613s | 31.370237s | 25.175580s | 1.00x faster | 1.24x slower |
+
+### Observations
+
+- canada.json regressed significantly: 11.4s (Run 4) → 31.3s. The `Vec<char>` elimination should have helped, but byte-level access with `u8`-to-`char` casting in `advance()` may be introducing overhead on this number-heavy file (2.2M of coordinate data parsed character by character).
+- twitter.json improved slightly: 3.92s (Run 4) → 3.25s (7% better than Run 3's 3.58s).
+- citm_catalog.json improved: 6.94s (Run 4) → 6.17s, now nearly matching simplejson.
+- The canada.json regression needs profiling. Likely cause: the byte-to-char conversion in `advance()` runs millions of times for number parsing, and the `.map()` closure may not be optimizing as well as the old `.copied()` on `Vec<char>`.

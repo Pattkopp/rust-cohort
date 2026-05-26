@@ -33,29 +33,29 @@ pub enum Token {
 ///
 /// The tokenizer is used internally by [`crate::JsonParser`]. It handles
 /// whitespace, string escapes (including `\uXXXX`), numbers, booleans, and null.
-pub struct Tokenizer {
-    input: Vec<char>,
+pub struct Tokenizer<'a> {
+    input: &'a str,
     current: usize,
 }
 
-impl Tokenizer {
+impl<'a> Tokenizer<'a> {
     /// Creates a new tokenizer for the given input string.
-    pub fn new(input: &str) -> Self {
-        Self {
-            input: input.chars().collect(),
-            current: 0,
-        }
+    pub fn new(input: &'a str) -> Self {
+        Self { input, current: 0 }
     }
 
     // === Helper Functions ===
     // look at current char without advancing
     fn peek(&self) -> Option<char> {
-        self.input.get(self.current).copied()
+        self.input
+            .as_bytes()
+            .get(self.current)
+            .map(|&b: &u8| b as char)
     }
 
     // return current char, then move forward
     fn advance(&mut self) -> Option<char> {
-        let token = self.input.get(self.current).copied();
+        let token = self.input.as_bytes().get(self.current).map(|&b| b as char);
         self.current += 1;
         token
     }
@@ -122,7 +122,7 @@ impl Tokenizer {
                         'u' => match self.input.get(self.current..(self.current + 4)) {
                             Some(hex_chars) => {
                                 // turn hex_chars into String
-                                let hex_str: String = hex_chars.iter().collect();
+                                let hex_str: String = String::from(hex_chars);
                                 // convert String to u32, returns a Result with wrong error type
                                 // transform ParseIntError to JsonError, ? then propagates it
                                 let code_point =
@@ -145,7 +145,7 @@ impl Tokenizer {
                             }
                             None => {
                                 let remaining: String = self.input[self.current..]
-                                    .iter()
+                                    .chars()
                                     .take_while(|ch| ch.is_ascii_hexdigit()) // only take the hex digits
                                     .collect();
                                 return Err(JsonError::InvalidUnicode {
