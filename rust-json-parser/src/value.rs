@@ -1,4 +1,6 @@
-use std::{collections::HashMap, fmt};
+use std::fmt;
+
+use rustc_hash::FxHashMap;
 
 /// Represents a JSON value.
 ///
@@ -34,7 +36,7 @@ pub enum JsonValue {
     /// JSON array — an ordered sequence of [`JsonValue`]s.
     Array(Vec<JsonValue>),
     /// JSON object — a map of string keys to [`JsonValue`]s.
-    Object(HashMap<String, JsonValue>),
+    Object(FxHashMap<String, JsonValue>),
 }
 
 impl JsonValue {
@@ -118,7 +120,7 @@ impl JsonValue {
         }
     }
 
-    /// If this is an `Object`, returns a reference to the underlying [`HashMap`]. Otherwise returns `None`.
+    /// If this is an `Object`, returns a reference to the underlying [`FxHashMap`]. Otherwise returns `None`.
     ///
     /// ```rust
     /// use rust_json_parser::{JsonParser, JsonValue};
@@ -129,7 +131,7 @@ impl JsonValue {
     /// let obj = value.as_object().unwrap();
     /// assert!(obj.contains_key("a"));
     /// ```
-    pub fn as_object(&self) -> Option<&HashMap<String, JsonValue>> {
+    pub fn as_object(&self) -> Option<&FxHashMap<String, JsonValue>> {
         if let JsonValue::Object(obj) = self {
             Some(obj)
         } else {
@@ -345,7 +347,7 @@ mod tests {
         #[test]
         fn test_display_empty_containers() {
             assert_eq!(JsonValue::Array(vec![]).to_string(), "[]");
-            assert_eq!(JsonValue::Object(HashMap::new()).to_string(), "{}");
+            assert_eq!(JsonValue::Object(FxHashMap::default()).to_string(), "{}");
         }
 
         #[test]

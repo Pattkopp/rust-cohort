@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use rustc_hash::{FxBuildHasher, FxHashMap};
 
 use crate::error::JsonError;
 use crate::tokenizer::{Token, Tokenizer};
@@ -95,7 +95,7 @@ impl JsonParser {
     }
 
     fn parse_object(&mut self) -> Result<JsonValue> {
-        let mut obj = HashMap::with_capacity(16);
+        let mut obj: FxHashMap<String, JsonValue> = FxHashMap::with_capacity_and_hasher(16, FxBuildHasher);
         if matches!(self.peek(), Some(Token::RightBrace)) {
             self.advance();
             return Ok(JsonValue::Object(obj));
@@ -417,18 +417,18 @@ mod tests {
 
     mod object_tests {
         use super::*;
-        use std::collections::HashMap;
+        use rustc_hash::FxHashMap;
 
         #[test]
         fn test_parse_empty_object() {
             let value = JsonParser::new().parse("{}").unwrap();
-            assert_eq!(value, JsonValue::Object(HashMap::new()));
+            assert_eq!(value, JsonValue::Object(FxHashMap::default()));
         }
 
         #[test]
         fn test_parse_object_single_key() {
             let value = JsonParser::new().parse(r#"{"key": "value"}"#).unwrap();
-            let mut expected = HashMap::new();
+            let mut expected = FxHashMap::default();
             expected.insert("key".to_string(), JsonValue::String("value".to_string()));
             assert_eq!(value, JsonValue::Object(expected));
         }

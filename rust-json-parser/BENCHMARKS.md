@@ -115,3 +115,23 @@ or caused by system load during Run 5 (profiler and browser were active).
 - twitter.json at 3.48s — slightly above Run 5's 3.25s, likely run-to-run variance. Still improved vs Run 4 (3.92s).
 - citm_catalog.json at 5.74s — improved from Run 5's 6.17s and Run 4's 6.94s.
 - The `&str` refactor is a net positive across all files. Next target: HashMap overhead in `parse_object` (~17% of canada.json profile).
+
+## Run 7 — `HashMap::with_capacity(16)` + `FxHashMap` in parse_object (2026-05-26)
+
+Two changes: pre-size HashMap to 16 entries in `parse_object`, and replace
+`std::collections::HashMap` with `rustc_hash::FxHashMap` throughout (parser + JsonValue).
+FxHash is a faster, non-cryptographic hasher suited for trusted input like JSON keys.
+
+| Fixture | Size | Rust | Python json (C) | simplejson | vs json (C) | vs simplejson |
+|---|---|---|---|---|---|---|
+| verysmall.json | 7 B | 0.000326s | 0.000494s | 0.000598s | 1.52x faster | 1.83x faster |
+| twitter.json | 568 KB | 3.261620s | 2.304444s | 1.907692s | 1.42x slower | 1.71x slower |
+| citm_catalog.json | 1.7 MB | 5.706554s | 4.949865s | 5.125027s | 1.15x slower | 1.11x slower |
+| canada.json | 2.3 MB | 11.198368s | 18.180192s | 19.823779s | 1.62x faster | 1.77x faster |
+
+### Observations
+
+- canada.json at 11.2s — consistent with Run 6 (10.6s). The FxHashMap swap and pre-sizing did not produce a measurable improvement here, likely because canada.json has very few object keys (mostly arrays of number coordinates).
+- twitter.json at 3.26s — matching Run 5 (3.25s) and Run 6 (3.48s). No measurable change from FxHashMap, though this file has many small objects.
+- citm_catalog.json at 5.71s — consistent with Run 6 (5.74s). Stable.
+- The FxHashMap change is architecturally correct (removes unnecessary cryptographic hashing overhead) but the benchmark files don't stress object-key hashing enough to show a clear difference. The improvement may be more visible on JSON with larger objects or more keys. Next target: Token cloning in parser's `advance()` (~1% overhead).
