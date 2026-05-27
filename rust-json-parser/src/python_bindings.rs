@@ -2,7 +2,7 @@ use crate::{JsonError, JsonParser, JsonValue};
 use pyo3::exceptions::PyValueError;
 use pyo3::types::{PyDict, PyList};
 use pyo3::{IntoPyObjectExt, prelude::*};
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 use std::time::Instant;
 
 // Type conversion: Rust to Python
@@ -112,7 +112,7 @@ fn py_to_json_value(obj: &Bound<PyAny>) -> PyResult<JsonValue> {
 
     // 6. Check dict (recurse on values)
     if let Ok(dict) = obj.cast::<PyDict>() {
-        let mut map = HashMap::new();
+        let mut map = FxHashMap::default();
         for (k, v) in dict.iter() {
             let k = k.extract::<String>()?;
             let v = py_to_json_value(&v)?;
