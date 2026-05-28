@@ -23,7 +23,7 @@ use rust_json_parser::JsonParser;
 const ITERATIONS: usize = 1000;
 
 fn main() {
-    let input = std::fs::read_to_string("python/rust_json_parser/bench_data/twitter.json")
+    let input = std::fs::read_to_string("python/rust_json_parser/bench_data/citm_catalog.json")
         .expect("Failed to read benchmark fixture");
     for _ in 0..ITERATIONS {
         let _result = JsonParser::new()
