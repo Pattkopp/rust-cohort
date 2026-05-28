@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use crate::error::JsonError;
 
 /// A single token produced by the [`Tokenizer`].
@@ -186,8 +188,8 @@ impl<'a> Tokenizer<'a> {
     ///
     /// Returns a [`JsonError`] if the input contains invalid tokens,
     /// bad escape sequences, or malformed numbers.
-    pub fn tokenize(&mut self) -> Result<Vec<Token>, JsonError> {
-        let mut tokens = Vec::new();
+    pub fn tokenize(&mut self) -> Result<VecDeque<Token>, JsonError> {
+        let mut tokens = VecDeque::new();
         while let Some(ch) = self.advance() {
             let token_start = self.current - 1; // counter has already advanced but token is still the one before
             let token = match ch {
@@ -207,7 +209,7 @@ impl<'a> Tokenizer<'a> {
                     position: token_start,
                 }),
             };
-            tokens.push(token?);
+            tokens.push_back(token?);
         }
         Ok(tokens)
     }

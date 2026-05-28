@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use rustc_hash::{FxBuildHasher, FxHashMap};
 
 use crate::error::JsonError;
@@ -25,8 +27,8 @@ type Result<T> = std::result::Result<T, JsonError>;
 /// ```
 #[derive(Debug, PartialEq, Default)]
 pub struct JsonParser {
-    tokens: Vec<Token>,
-    current: usize,
+    tokens: VecDeque<Token>,
+    position: usize,
 }
 
 impl JsonParser {
@@ -37,17 +39,11 @@ impl JsonParser {
 
     // return the current token and advance
     fn advance(&mut self) -> Option<Token> {
-        let token = self.tokens.get(self.current).cloned();
-        self.current += 1;
-        token
-    }
-
-    fn is_at_end(&self) -> bool {
-        self.current >= self.tokens.len()
+        self.tokens.pop_front().inspect(|_| self.position += 1)
     }
 
     fn peek(&self) -> Option<&Token> {
-        self.tokens.get(self.current)
+        self.tokens.front()
     }
 
     fn parse_array(&mut self) -> Result<JsonValue> {
@@ -66,7 +62,7 @@ impl JsonParser {
                             return Err(JsonError::UnexpectedToken {
                                 expected: "next array item".to_string(),
                                 found: format!("{:?}", t),
-                                position: self.current,
+                                position: self.position,
                             });
                         }
                         _ => continue,
@@ -80,13 +76,13 @@ impl JsonParser {
                     return Err(JsonError::UnexpectedToken {
                         expected: "comma or closing bracket".to_string(),
                         found: format!("{:?}", t),
-                        position: self.current,
+                        position: self.position,
                     });
                 }
                 None => {
                     return Err(JsonError::UnexpectedEndOfInput {
                         expected: "comma or closing bracket".to_string(),
-                        position: self.current,
+                        position: self.position,
                     });
                 }
             }
@@ -95,7 +91,8 @@ impl JsonParser {
     }
 
     fn parse_object(&mut self) -> Result<JsonValue> {
-        let mut obj: FxHashMap<String, JsonValue> = FxHashMap::with_capacity_and_hasher(16, FxBuildHasher);
+        let mut obj: FxHashMap<String, JsonValue> =
+            FxHashMap::with_capacity_and_hasher(16, FxBuildHasher);
         if matches!(self.peek(), Some(Token::RightBrace)) {
             self.advance();
             return Ok(JsonValue::Object(obj));
@@ -113,7 +110,7 @@ impl JsonParser {
                             return Err(JsonError::UnexpectedToken {
                                 expected: "next object item".to_string(),
                                 found: format!("{:?}", t),
-                                position: self.current,
+                                position: self.position,
                             });
                         }
                         _ => continue,
@@ -127,13 +124,13 @@ impl JsonParser {
                     return Err(JsonError::UnexpectedToken {
                         expected: "comma or closing brace".to_string(),
                         found: format!("{:?}", t),
-                        position: self.current,
+                        position: self.position,
                     });
                 }
                 None => {
                     return Err(JsonError::UnexpectedEndOfInput {
                         expected: "comma or closing brace".to_string(),
-                        position: self.current,
+                        position: self.position,
                     });
                 }
             }
@@ -167,15 +164,15 @@ impl JsonParser {
     /// - [`InvalidUnicode`](crate::JsonError::InvalidUnicode) — bad `\uXXXX` sequence
     pub fn parse(&mut self, input: &str) -> Result<JsonValue> {
         self.tokens = Tokenizer::new(input).tokenize()?;
-        self.current = 0;
+        self.position = 0;
         self.parse_value()
     }
 
     fn parse_value(&mut self) -> Result<JsonValue> {
-        if self.is_at_end() {
+        if self.peek().is_none() {
             return Err(JsonError::UnexpectedEndOfInput {
                 expected: "JSON value".to_string(),
-                position: self.current,
+                position: self.position,
             });
         };
         match self.advance() {
@@ -188,26 +185,26 @@ impl JsonParser {
             Some(t) => Err(JsonError::UnexpectedToken {
                 expected: "primitive JSON value".to_string(),
                 found: format!("{:?}", t),
-                position: self.current - 1,
+                position: self.position - 1,
             }),
             None => Err(JsonError::UnexpectedEndOfInput {
                 expected: "JSON value".to_string(),
-                position: self.current - 1,
+                position: self.position - 1,
             }),
         }
     }
 
     fn expect_string_key(&mut self) -> Result<String> {
         match self.advance() {
-            Some(Token::String(key)) => Ok(key),
+            Some(Token::String(key)) => Ok(key.to_string()),
             Some(t) => Err(JsonError::UnexpectedToken {
                 expected: "string as key for an object".to_string(),
                 found: format!("{:?}", t),
-                position: self.current,
+                position: self.position,
             }),
             None => Err(JsonError::UnexpectedEndOfInput {
                 expected: "string as key for an object".to_string(),
-                position: self.current,
+                position: self.position,
             }),
         }
     }
@@ -218,11 +215,11 @@ impl JsonParser {
             Some(t) => Err(JsonError::UnexpectedToken {
                 expected: "colon as separator for an object".to_string(),
                 found: format!("{:?}", t),
-                position: self.current,
+                position: self.position,
             }),
             None => Err(JsonError::UnexpectedEndOfInput {
                 expected: "colon as separator for an object".to_string(),
-                position: self.current,
+                position: self.position,
             }),
         }
     }

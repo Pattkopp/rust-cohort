@@ -135,3 +135,28 @@ FxHash is a faster, non-cryptographic hasher suited for trusted input like JSON 
 - twitter.json at 3.26s — matching Run 5 (3.25s) and Run 6 (3.48s). No measurable change from FxHashMap, though this file has many small objects.
 - citm_catalog.json at 5.71s — consistent with Run 6 (5.74s). Stable.
 - The FxHashMap change is architecturally correct (removes unnecessary cryptographic hashing overhead) but the benchmark files don't stress object-key hashing enough to show a clear difference. The improvement may be more visible on JSON with larger objects or more keys. Next target: Token cloning in parser's `advance()` (~1% overhead).
+
+## Run 8 — Replace index-based token cursor with `VecDeque::pop_front` (2026-05-28)
+
+**Machine change: MacBook Pro M4 Max (Runs 1–7 were on MacBook Air M3).
+Numbers are not directly comparable to previous runs due to the hardware change.**
+
+Replaced the index-based cursor in `JsonParser` with `VecDeque::pop_front`. The parser
+no longer maintains an index into the token buffer — `front()` peeks, `pop_front()`
+consumes. The `position` field (renamed from `current`) is now purely a token counter
+for error reporting. `is_at_end()` was eliminated in favor of `peek().is_none()`.
+
+| Fixture | Size | Rust | Python json (C) | simplejson | vs json (C) | vs simplejson |
+|---|---|---|---|---|---|---|
+| verysmall.json | 7 B | 0.000208s | 0.000447s | 0.000939s | 2.15x faster | 4.51x faster |
+| twitter.json | 568 KB | 1.648916s | 2.324019s | 1.743994s | 1.41x faster | 1.06x faster |
+| citm_catalog.json | 1.7 MB | 5.152578s | 4.643702s | 4.178195s | 1.11x slower | 1.23x slower |
+| canada.json | 2.3 MB | 7.759987s | 16.465308s | 18.469949s | 2.12x faster | 2.38x faster |
+
+### Observations
+
+- **twitter.json crossed the line**: Rust now faster than both Python implementations. Previous best on M3 was 3.25s (1.44x slower than json C); now 1.65s and 1.41x faster. The `pop_front` change eliminates redundant indexing on every token access, which compounds over twitter.json's ~30k tokens.
+- canada.json at 7.76s, down from 11.2s (Run 7). Rust is now 2.12x faster than Python's json(C).
+- citm_catalog.json remains the one file where Rust trails — 1.11x slower than json(C). This file is heavy on string keys and object structure; the remaining overhead is likely in string allocation and HashMap insertion.
+- verysmall.json shows the M4 Max baseline: 4.51x faster than simplejson, up from 1.83x on M3.
+- Hardware change accounts for a significant portion of the raw time improvement. The architectural change (pop_front vs index) contributes the twitter.json ratio flip — that comparison is against Python running on the same M4 Max hardware.
