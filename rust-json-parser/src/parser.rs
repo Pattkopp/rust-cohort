@@ -26,27 +26,27 @@ type Result<T> = std::result::Result<T, JsonError>;
 /// assert_eq!(value.as_array().unwrap().len(), 3);
 /// ```
 #[derive(Debug, PartialEq, Default)]
-pub struct JsonParser {
-    tokens: VecDeque<Token>,
+pub struct JsonParser<'a> {
+    tokens: VecDeque<Token<'a>>,
     position: usize,
 }
 
-impl JsonParser {
+impl<'a> JsonParser<'a> {
     /// Creates a new parser with empty state.
     pub fn new() -> Self {
         Self::default()
     }
 
     // return the current token and advance
-    fn advance(&mut self) -> Option<Token> {
+    fn advance(&mut self) -> Option<Token<'a>> {
         self.tokens.pop_front().inspect(|_| self.position += 1)
     }
 
-    fn peek(&self) -> Option<&Token> {
+    fn peek(&self) -> Option<&Token<'_>> {
         self.tokens.front()
     }
 
-    fn parse_array(&mut self) -> Result<JsonValue> {
+    fn parse_array(&mut self) -> Result<JsonValue<'a>> {
         let mut arr = Vec::new();
         if matches!(self.peek(), Some(Token::RightBracket)) {
             self.advance();
@@ -90,7 +90,7 @@ impl JsonParser {
         Ok(JsonValue::Array(arr))
     }
 
-    fn parse_object(&mut self) -> Result<JsonValue> {
+    fn parse_object(&mut self) -> Result<JsonValue<'a>> {
         let mut obj: FxHashMap<String, JsonValue> =
             FxHashMap::with_capacity_and_hasher(16, FxBuildHasher);
         if matches!(self.peek(), Some(Token::RightBrace)) {
@@ -162,13 +162,13 @@ impl JsonParser {
     /// - [`InvalidNumber`](crate::JsonError::InvalidNumber) — malformed numeric literal
     /// - [`InvalidEscape`](crate::JsonError::InvalidEscape) — unrecognized escape sequence
     /// - [`InvalidUnicode`](crate::JsonError::InvalidUnicode) — bad `\uXXXX` sequence
-    pub fn parse(&mut self, input: &str) -> Result<JsonValue> {
+    pub fn parse(&mut self, input: &'a str) -> Result<JsonValue<'a>> {
         self.tokens = Tokenizer::new(input).tokenize()?;
         self.position = 0;
         self.parse_value()
     }
 
-    fn parse_value(&mut self) -> Result<JsonValue> {
+    fn parse_value(&mut self) -> Result<JsonValue<'a>> {
         if self.peek().is_none() {
             return Err(JsonError::UnexpectedEndOfInput {
                 expected: "JSON value".to_string(),
@@ -196,7 +196,7 @@ impl JsonParser {
 
     fn expect_string_key(&mut self) -> Result<String> {
         match self.advance() {
-            Some(Token::String(key)) => Ok(key.to_string()),
+            Some(Token::String(key)) => Ok(key.to_string().into()),
             Some(t) => Err(JsonError::UnexpectedToken {
                 expected: "string as key for an object".to_string(),
                 found: format!("{:?}", t),
@@ -286,7 +286,7 @@ mod tests {
     fn test_parse_simple_string() {
         let mut parser = JsonParser::new();
         let value = parser.parse(r#""hello""#).unwrap();
-        assert_eq!(value, JsonValue::String("hello".to_string()));
+        assert_eq!(value, JsonValue::String("hello".to_string().into()));
     }
 
     // === Escape Sequence Integration Tests ===
@@ -295,28 +295,28 @@ mod tests {
     fn test_parse_string_with_newline() {
         let mut parser = JsonParser::new();
         let value = parser.parse(r#""hello\nworld""#).unwrap();
-        assert_eq!(value, JsonValue::String("hello\nworld".to_string()));
+        assert_eq!(value, JsonValue::String("hello\nworld".to_string().into()));
     }
 
     #[test]
     fn test_parse_string_with_tab() {
         let mut parser = JsonParser::new();
         let value = parser.parse(r#""col1\tcol2""#).unwrap();
-        assert_eq!(value, JsonValue::String("col1\tcol2".to_string()));
+        assert_eq!(value, JsonValue::String("col1\tcol2".to_string().into()));
     }
 
     #[test]
     fn test_parse_string_with_quotes() {
         let mut parser = JsonParser::new();
         let value = parser.parse(r#""say \"hi\"""#).unwrap();
-        assert_eq!(value, JsonValue::String("say \"hi\"".to_string()));
+        assert_eq!(value, JsonValue::String("say \"hi\"".to_string().into()));
     }
 
     #[test]
     fn test_parse_string_with_unicode() {
         let mut parser = JsonParser::new();
         let value = parser.parse(r#""\u0048\u0065\u006c\u006c\u006f""#).unwrap();
-        assert_eq!(value, JsonValue::String("Hello".to_string()));
+        assert_eq!(value, JsonValue::String("Hello".to_string().into()));
     }
 
     #[test]
@@ -325,7 +325,7 @@ mod tests {
         let value = parser.parse(r#""line1\nline2\t\"quoted\"\u0021""#).unwrap();
         assert_eq!(
             value,
-            JsonValue::String("line1\nline2\t\"quoted\"!".to_string())
+            JsonValue::String("line1\nline2\t\"quoted\"!".to_string().into())
         );
     }
 
@@ -378,7 +378,7 @@ mod tests {
                 .unwrap();
             let expected = JsonValue::Array(vec![
                 JsonValue::Number(1.0),
-                JsonValue::String("two".to_string()),
+                JsonValue::String("two".to_string().into()),
                 JsonValue::Boolean(true),
                 JsonValue::Null,
             ]);
@@ -426,7 +426,7 @@ mod tests {
         fn test_parse_object_single_key() {
             let value = JsonParser::new().parse(r#"{"key": "value"}"#).unwrap();
             let mut expected = FxHashMap::default();
-            expected.insert("key".to_string(), JsonValue::String("value".to_string()));
+            expected.insert("key".to_string(), JsonValue::String("value".to_string().into()));
             assert_eq!(value, JsonValue::Object(expected));
         }
 
@@ -438,7 +438,7 @@ mod tests {
             if let JsonValue::Object(obj) = value {
                 assert_eq!(
                     obj.get("name"),
-                    Some(&JsonValue::String("Alice".to_string()))
+                    Some(&JsonValue::String("Alice".to_string().into()))
                 );
                 assert_eq!(obj.get("age"), Some(&JsonValue::Number(30.0)));
             } else {
@@ -500,7 +500,7 @@ mod tests {
                 .unwrap();
             assert_eq!(
                 value.get("name"),
-                Some(&JsonValue::String("Alice".to_string()))
+                Some(&JsonValue::String("Alice".to_string().into()))
             );
             assert_eq!(value.get("missing"), None);
         }

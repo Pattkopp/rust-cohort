@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{borrow::Cow, fmt};
 
 use rustc_hash::FxHashMap;
 
@@ -20,11 +20,11 @@ use rustc_hash::FxHashMap;
 /// assert_eq!(parser.parse("null").unwrap(), JsonValue::Null);
 /// assert_eq!(parser.parse("true").unwrap(), JsonValue::Boolean(true));
 /// assert_eq!(parser.parse("42").unwrap(), JsonValue::Number(42.0));
-/// assert_eq!(parser.parse(r#""hello""#).unwrap(), JsonValue::String("hello".to_string()));
+/// assert_eq!(parser.parse(r#""hello""#).unwrap(), JsonValue::String("hello".to_string().into()));
 /// assert_eq!(parser.parse("[1, 2]").unwrap(), JsonValue::Array(vec![JsonValue::Number(1.0), JsonValue::Number(2.0)]));
 /// ```
 #[derive(Debug, Clone, PartialEq)]
-pub enum JsonValue {
+pub enum JsonValue<'a> {
     /// JSON `null`.
     Null,
     /// JSON boolean (`true` or `false`).
@@ -32,14 +32,14 @@ pub enum JsonValue {
     /// JSON number, stored as an `f64` per the JSON specification.
     Number(f64),
     /// JSON string, with escape sequences already resolved.
-    String(String),
+    String(Cow<'a, str>),
     /// JSON array — an ordered sequence of [`JsonValue`]s.
-    Array(Vec<JsonValue>),
+    Array(Vec<JsonValue<'a>>),
     /// JSON object — a map of string keys to [`JsonValue`]s.
-    Object(FxHashMap<String, JsonValue>),
+    Object(FxHashMap<String, JsonValue<'a>>),
 }
 
-impl JsonValue {
+impl<'a> JsonValue<'a> {
     /// Returns `true` if this value is `JsonValue::Null`.
     ///
     /// ```rust
@@ -57,13 +57,13 @@ impl JsonValue {
     /// ```rust
     /// use rust_json_parser::JsonValue;
     ///
-    /// let val = JsonValue::String("hello".to_string());
+    /// let val = JsonValue::String("hello".to_string().into());
     /// assert_eq!(val.as_str(), Some("hello"));
     /// assert_eq!(JsonValue::Null.as_str(), None);
     /// ```
     pub fn as_str(&self) -> Option<&str> {
         if let JsonValue::String(s) = self {
-            Some(s.as_str())
+            Some(s.as_ref())
         } else {
             None
         }
@@ -112,7 +112,7 @@ impl JsonValue {
     /// assert_eq!(value.as_array().unwrap().len(), 3);
     /// assert_eq!(JsonValue::Null.as_array(), None);
     /// ```
-    pub fn as_array(&self) -> Option<&[JsonValue]> {
+    pub fn as_array(&self) -> Option<&[JsonValue<'_>]> {
         if let JsonValue::Array(arr) = self {
             Some(arr)
         } else {
@@ -131,7 +131,7 @@ impl JsonValue {
     /// let obj = value.as_object().unwrap();
     /// assert!(obj.contains_key("a"));
     /// ```
-    pub fn as_object(&self) -> Option<&FxHashMap<String, JsonValue>> {
+    pub fn as_object(&self) -> Option<&FxHashMap<String, JsonValue<'_>>> {
         if let JsonValue::Object(obj) = self {
             Some(obj)
         } else {
@@ -148,10 +148,10 @@ impl JsonValue {
     /// let mut parser = JsonParser::new();
     /// let value = parser.parse(r#"{"name": "Alice"}"#).unwrap();
     ///
-    /// assert_eq!(value.get("name"), Some(&JsonValue::String("Alice".to_string())));
+    /// assert_eq!(value.get("name"), Some(&JsonValue::String("Alice".to_string().into())));
     /// assert_eq!(value.get("missing"), None);
     /// ```
-    pub fn get(&self, key: &str) -> Option<&JsonValue> {
+    pub fn get(&self, key: &str) -> Option<&JsonValue<'_>> {
         if let Some(map) = self.as_object() {
             map.get(key)
         } else {
@@ -209,7 +209,7 @@ impl JsonValue {
                             format!(
                                 "{}{}: {}",
                                 child_indent,
-                                JsonValue::String(key.to_string()),
+                                JsonValue::String(Cow::Owned(key.to_string().into())),
                                 val.pretty_print_recursive(indent, depth + 1)
                             )
                         })
@@ -221,7 +221,7 @@ impl JsonValue {
     }
 }
 
-impl fmt::Display for JsonValue {
+impl fmt::Display for JsonValue<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             JsonValue::Null => write!(f, "null"),
@@ -263,7 +263,12 @@ impl fmt::Display for JsonValue {
                     if i != 0 {
                         write!(f, ",")?;
                     }
-                    write!(f, "{}:{}", JsonValue::String(key.to_string()), value)?;
+                    write!(
+                        f,
+                        "{}:{}",
+                        JsonValue::String(Cow::Owned(key.to_string().into())),
+                        value
+                    )?;
                 }
                 write!(f, "}}")
             }
@@ -280,7 +285,7 @@ mod tests {
         let null_val = JsonValue::Null;
         let bool_val = JsonValue::Boolean(true);
         let num_val = JsonValue::Number(42.5);
-        let str_val = JsonValue::String("hello".to_string());
+        let str_val = JsonValue::String("hello".to_string().into());
 
         assert!(null_val.is_null());
         assert_eq!(bool_val.as_bool(), Some(true));
@@ -290,7 +295,7 @@ mod tests {
 
     #[test]
     fn test_json_value_accessors() {
-        let value = JsonValue::String("test".to_string());
+        let value = JsonValue::String("test".to_string().into());
         assert_eq!(value.as_str(), Some("test"));
         assert_eq!(value.as_f64(), None);
         assert_eq!(value.as_bool(), None);
@@ -313,8 +318,8 @@ mod tests {
         assert_eq!(JsonValue::Boolean(true), JsonValue::Boolean(true));
         assert_eq!(JsonValue::Number(42.0), JsonValue::Number(42.0));
         assert_eq!(
-            JsonValue::String("test".to_string()),
-            JsonValue::String("test".to_string())
+            JsonValue::String("test".to_string().into()),
+            JsonValue::String("test".to_string().into())
         );
 
         assert_ne!(JsonValue::Null, JsonValue::Boolean(false));
@@ -333,7 +338,7 @@ mod tests {
             assert_eq!(JsonValue::Number(42.0).to_string(), "42");
             assert_eq!(JsonValue::Number(9.6).to_string(), "9.6");
             assert_eq!(
-                JsonValue::String("hello".to_string()).to_string(),
+                JsonValue::String("hello".to_string().into()).to_string(),
                 "\"hello\""
             );
         }
@@ -352,13 +357,13 @@ mod tests {
 
         #[test]
         fn test_display_escape_string() {
-            let value = JsonValue::String("hello\nworld".to_string());
+            let value = JsonValue::String("hello\nworld".to_string().into());
             assert_eq!(value.to_string(), "\"hello\\nworld\"");
         }
 
         #[test]
         fn test_display_escape_quotes() {
-            let value = JsonValue::String("say \"hi\"".to_string());
+            let value = JsonValue::String("say \"hi\"".to_string().into());
             assert_eq!(value.to_string(), "\"say \\\"hi\\\"\"");
         }
 

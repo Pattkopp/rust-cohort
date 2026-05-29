@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::{borrow::Cow, collections::VecDeque};
 
 use crate::error::JsonError;
 
@@ -8,7 +8,7 @@ use crate::error::JsonError;
 /// Most users do not interact with tokens directly — [`crate::JsonParser`]
 /// handles tokenization internally.
 #[derive(Debug, PartialEq, Clone)]
-pub enum Token {
+pub enum Token<'a> {
     /// `{`
     LeftBrace,
     /// `}`
@@ -22,7 +22,7 @@ pub enum Token {
     /// `:`
     Colon,
     /// A JSON string literal, with escape sequences resolved.
-    String(String),
+    String(Cow<'a, str>),
     /// A JSON number, stored as `f64` per the [JSON spec](https://www.json.org/json-en.html).
     Number(f64),
     /// `true` or `false`.
@@ -37,13 +37,13 @@ pub enum Token {
 /// whitespace, string escapes (including `\uXXXX`), numbers, booleans, and null.
 pub struct Tokenizer<'a> {
     input: &'a str,
-    current: usize,
+    position: usize,
 }
 
 impl<'a> Tokenizer<'a> {
     /// Creates a new tokenizer for the given input string.
     pub fn new(input: &'a str) -> Self {
-        Self { input, current: 0 }
+        Self { input, position: 0 }
     }
 
     // === Helper Functions ===
@@ -51,14 +51,14 @@ impl<'a> Tokenizer<'a> {
     fn peek(&self) -> Option<char> {
         self.input
             .as_bytes()
-            .get(self.current)
+            .get(self.position)
             .map(|&b: &u8| b as char)
     }
 
     // return current char, then move forward
     fn advance(&mut self) -> Option<char> {
-        let token = self.input.as_bytes().get(self.current).map(|&b| b as char);
-        self.current += 1;
+        let token = self.input.as_bytes().get(self.position).map(|&b| b as char);
+        self.position += 1;
         token
     }
 
@@ -72,7 +72,7 @@ impl<'a> Tokenizer<'a> {
     }
 
     // === tokenizer helper functions ===
-    fn read_keyword(&mut self, ch: char, token_start: usize) -> Result<Token, JsonError> {
+    fn read_keyword(&mut self, ch: char, token_start: usize) -> Result<Token<'a>, JsonError> {
         let mut word = String::from(ch);
 
         while let Some(ch) = self.advance_if(|ch| ch.is_ascii_alphabetic()) {
@@ -90,7 +90,7 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
-    fn read_digit(&mut self, ch: char, token_start: usize) -> Result<Token, JsonError> {
+    fn read_digit(&mut self, ch: char, token_start: usize) -> Result<Token<'a>, JsonError> {
         let mut num_str = String::with_capacity(20);
         num_str.push(ch);
 
@@ -108,7 +108,8 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
-    fn read_string(&mut self, token_start: usize) -> Result<Token, JsonError> {
+    fn read_string(&mut self, token_start: usize) -> Result<Token<'a>, JsonError> {
+        let start = self.position;
         let mut content = String::with_capacity(64);
         loop {
             match self.advance() {
@@ -121,7 +122,7 @@ impl<'a> Tokenizer<'a> {
                         'n' => content.push('\n'),
                         'r' => content.push('\r'),
                         't' => content.push('\t'),
-                        'u' => match self.input.get(self.current..(self.current + 4)) {
+                        'u' => match self.input.get(self.position..(self.position + 4)) {
                             Some(hex_chars) => {
                                 // turn hex_chars into String
                                 let hex_str: String = String::from(hex_chars);
@@ -130,8 +131,8 @@ impl<'a> Tokenizer<'a> {
                                 let code_point =
                                     u32::from_str_radix(&hex_str, 16).map_err(|_| {
                                         JsonError::InvalidUnicode {
-                                            sequence: hex_str.clone(),  // need to clone because I use hex_str below
-                                            position: self.current - 2, // includes the \ in the position
+                                            sequence: hex_str.clone(),   // need to clone because I use hex_str below
+                                            position: self.position - 2, // includes the \ in the position
                                         }
                                     })?;
                                 // create char from Unicode, returns Option
@@ -139,27 +140,27 @@ impl<'a> Tokenizer<'a> {
                                 let ch = char::from_u32(code_point).ok_or(
                                     JsonError::InvalidUnicode {
                                         sequence: hex_str,
-                                        position: self.current - 2,
+                                        position: self.position - 2,
                                     },
                                 )?;
-                                self.current += 4;
+                                self.position += 4;
                                 content.push(ch);
                             }
                             None => {
-                                let remaining: String = self.input[self.current..]
+                                let remaining: String = self.input[self.position..]
                                     .chars()
                                     .take_while(|ch| ch.is_ascii_hexdigit()) // only take the hex digits
                                     .collect();
                                 return Err(JsonError::InvalidUnicode {
                                     sequence: remaining,
-                                    position: self.current - 2,
+                                    position: self.position - 2,
                                 });
                             }
                         },
                         ch => {
                             return Err(JsonError::InvalidEscape {
                                 char: ch,
-                                position: self.current - 2,
+                                position: self.position - 2,
                             });
                         }
                     },
@@ -179,7 +180,7 @@ impl<'a> Tokenizer<'a> {
                 }
             }
         }
-        Ok(Token::String(content))
+        Ok(Token::String(Cow::Owned(content)))
     }
 
     /// Consumes the input and returns the full list of tokens.
@@ -188,10 +189,10 @@ impl<'a> Tokenizer<'a> {
     ///
     /// Returns a [`JsonError`] if the input contains invalid tokens,
     /// bad escape sequences, or malformed numbers.
-    pub fn tokenize(&mut self) -> Result<VecDeque<Token>, JsonError> {
+    pub fn tokenize(&mut self) -> Result<VecDeque<Token<'a>>, JsonError> {
         let mut tokens = VecDeque::new();
         while let Some(ch) = self.advance() {
-            let token_start = self.current - 1; // counter has already advanced but token is still the one before
+            let token_start = self.position - 1; // counter has already advanced but token is still the one before
             let token = match ch {
                 ' ' | '\t' | '\n' | '\r' => continue,
                 '{' => Ok(Token::LeftBrace),
@@ -271,7 +272,7 @@ mod tests {
     fn test_tokenize_simple_string() {
         let mut tokenizer = Tokenizer::new(r#""hello""#);
         let tokens = tokenizer.tokenize().unwrap();
-        assert_eq!(tokens, vec![Token::String("hello".to_string())]);
+        assert_eq!(tokens, vec![Token::String("hello".to_string().into())]);
     }
 
     // === Escape Sequence Tests ===
@@ -280,56 +281,68 @@ mod tests {
     fn test_escape_newline() {
         let mut tokenizer = Tokenizer::new(r#""hello\nworld""#);
         let tokens = tokenizer.tokenize().unwrap();
-        assert_eq!(tokens, vec![Token::String("hello\nworld".to_string())]);
+        assert_eq!(
+            tokens,
+            vec![Token::String("hello\nworld".to_string().into())]
+        );
     }
 
     #[test]
     fn test_escape_tab() {
         let mut tokenizer = Tokenizer::new(r#""col1\tcol2""#);
         let tokens = tokenizer.tokenize().unwrap();
-        assert_eq!(tokens, vec![Token::String("col1\tcol2".to_string())]);
+        assert_eq!(tokens, vec![Token::String("col1\tcol2".to_string().into())]);
     }
 
     #[test]
     fn test_escape_quote() {
         let mut tokenizer = Tokenizer::new(r#""say \"hello\"""#);
         let tokens = tokenizer.tokenize().unwrap();
-        assert_eq!(tokens, vec![Token::String("say \"hello\"".to_string())]);
+        assert_eq!(
+            tokens,
+            vec![Token::String("say \"hello\"".to_string().into())]
+        );
     }
 
     #[test]
     fn test_escape_backslash() {
         let mut tokenizer = Tokenizer::new(r#""path\\to\\file""#);
         let tokens = tokenizer.tokenize().unwrap();
-        assert_eq!(tokens, vec![Token::String("path\\to\\file".to_string())]);
+        assert_eq!(
+            tokens,
+            vec![Token::String("path\\to\\file".to_string().into())]
+        );
     }
 
     #[test]
     fn test_escape_forward_slash() {
         let mut tokenizer = Tokenizer::new(r#""a\/b""#);
         let tokens = tokenizer.tokenize().unwrap();
-        assert_eq!(tokens, vec![Token::String("a/b".to_string())]);
+        assert_eq!(tokens, vec![Token::String("a/b".to_string().into())]);
     }
 
     #[test]
     fn test_escape_carriage_return() {
         let mut tokenizer = Tokenizer::new(r#""line\r\n""#);
         let tokens = tokenizer.tokenize().unwrap();
-        assert_eq!(tokens, vec![Token::String("line\r\n".to_string())]);
+        assert_eq!(tokens, vec![Token::String("line\r\n".to_string().into())]);
     }
 
     #[test]
     fn test_escape_backspace_formfeed() {
         let mut tokenizer = Tokenizer::new(r#""\b\f""#);
         let tokens = tokenizer.tokenize().unwrap();
-        assert_eq!(tokens, vec![Token::String("\u{0008}\u{000C}".to_string())]);
+        assert_eq!(
+            tokens,
+            vec![Token::String("\u{0008}\u{000C}".to_string().into())]
+        );
     }
 
     #[test]
     fn test_multiple_escapes() {
         let mut tokenizer = Tokenizer::new(r#""a\nb\tc\"""#);
         let tokens = tokenizer.tokenize().unwrap();
-        assert_eq!(tokens, vec![Token::String("a\nb\tc\"".to_string())]);
+        assert_eq!(tokens, vec![Token::String("a\nb\tc\"".to_string().into())]);
     }
 
     // === Unicode Escape Tests ===
@@ -339,7 +352,7 @@ mod tests {
         // \u0041 is 'A'
         let mut tokenizer = Tokenizer::new(r#""\u0041""#);
         let tokens = tokenizer.tokenize().unwrap();
-        assert_eq!(tokens, vec![Token::String("A".to_string())]);
+        assert_eq!(tokens, vec![Token::String("A".to_string().into())]);
     }
 
     #[test]
@@ -347,7 +360,7 @@ mod tests {
         // \u0048\u0069 is "Hi"
         let mut tokenizer = Tokenizer::new(r#""\u0048\u0069""#);
         let tokens = tokenizer.tokenize().unwrap();
-        assert_eq!(tokens, vec![Token::String("Hi".to_string())]);
+        assert_eq!(tokens, vec![Token::String("Hi".to_string().into())]);
     }
 
     #[test]
@@ -355,7 +368,10 @@ mod tests {
         // Mix of regular chars and unicode escapes
         let mut tokenizer = Tokenizer::new(r#""Hello \u0057orld""#);
         let tokens = tokenizer.tokenize().unwrap();
-        assert_eq!(tokens, vec![Token::String("Hello World".to_string())]);
+        assert_eq!(
+            tokens,
+            vec![Token::String("Hello World".to_string().into())]
+        );
     }
 
     #[test]
@@ -363,7 +379,7 @@ mod tests {
         // Lowercase hex digits should work too
         let mut tokenizer = Tokenizer::new(r#""\u004a""#);
         let tokens = tokenizer.tokenize().unwrap();
-        assert_eq!(tokens, vec![Token::String("J".to_string())]);
+        assert_eq!(tokens, vec![Token::String("J".to_string().into())]);
     }
 
     // === Error Tests ===

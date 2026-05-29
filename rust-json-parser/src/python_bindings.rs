@@ -6,7 +6,7 @@ use rustc_hash::FxHashMap;
 use std::time::Instant;
 
 // Type conversion: Rust to Python
-impl<'py> IntoPyObject<'py> for JsonValue {
+impl<'py> IntoPyObject<'py> for JsonValue<'_> {
     type Target = PyAny;
     type Output = Bound<'py, Self::Target>;
     type Error = PyErr;
@@ -80,7 +80,7 @@ fn dumps(obj: &Bound<PyAny>, indent: Option<usize>) -> PyResult<String> {
 }
 
 // Helper (not exposed to Python)
-fn py_to_json_value(obj: &Bound<PyAny>) -> PyResult<JsonValue> {
+fn py_to_json_value<'a>(obj: &Bound<PyAny>) -> PyResult<JsonValue<'a>> {
     // 1. Check None first
     if obj.is_none() {
         return Ok(JsonValue::Null);
@@ -98,7 +98,7 @@ fn py_to_json_value(obj: &Bound<PyAny>) -> PyResult<JsonValue> {
 
     // 4. Check string
     if let Ok(s) = obj.extract::<String>() {
-        return Ok(JsonValue::String(s));
+        return Ok(JsonValue::String(s.into()));
     }
 
     // 5. Check list (recurse on elements)

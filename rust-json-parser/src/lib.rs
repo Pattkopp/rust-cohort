@@ -20,7 +20,7 @@
 //! let mut parser = JsonParser::new();
 //! let value = parser.parse(r#"{"name": "Jochen", "age": 96}"#).unwrap();
 //!
-//! assert_eq!(value.get("name"), Some(&JsonValue::String("Jochen".to_string())));
+//! assert_eq!(value.get("name"), Some(&JsonValue::String("Jochen".to_string().into())));
 //! assert_eq!(value.get("age"), Some(&JsonValue::Number(96.0)));
 //! ```
 
@@ -55,7 +55,7 @@ mod tests {
         assert_eq!(parser.parse("null")?, JsonValue::Null);
         assert_eq!(
             parser.parse(r#""hello""#)?,
-            JsonValue::String("hello".to_string())
+            JsonValue::String("hello".to_string().into())
         );
         Ok(())
     }
