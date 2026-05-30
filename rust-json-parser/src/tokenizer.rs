@@ -48,22 +48,19 @@ impl<'a> Tokenizer<'a> {
 
     // === Helper Functions ===
     // look at current char without advancing
-    fn peek(&self) -> Option<char> {
-        self.input
-            .as_bytes()
-            .get(self.position)
-            .map(|&b: &u8| b as char)
+    fn peek(&self) -> Option<u8> {
+        self.input.as_bytes().get(self.position).copied()
     }
 
     // return current char, then move forward
-    fn advance(&mut self) -> Option<char> {
-        let token = self.input.as_bytes().get(self.position).map(|&b| b as char);
+    fn advance(&mut self) -> Option<u8> {
+        let token = self.input.as_bytes().get(self.position).copied();
         self.position += 1;
         token
     }
 
     // combined method that peeks and advances in one step to address the PR feedback
-    fn advance_if(&mut self, predicate: impl Fn(char) -> bool) -> Option<char> {
+    fn advance_if(&mut self, predicate: impl Fn(u8) -> bool) -> Option<u8> {
         if self.peek().is_some_and(&predicate) {
             self.advance()
         } else {
@@ -72,37 +69,32 @@ impl<'a> Tokenizer<'a> {
     }
 
     // === tokenizer helper functions ===
-    fn read_keyword(&mut self, ch: char, token_start: usize) -> Result<Token<'a>, JsonError> {
-        let mut word = String::from(ch);
-
-        while let Some(ch) = self.advance_if(|ch| ch.is_ascii_alphabetic()) {
-            word.push(ch);
-        }
-        match word.as_str() {
+    fn read_keyword(&mut self, token_start: usize) -> Result<Token<'a>, JsonError> {
+        while self.advance_if(|ch| ch.is_ascii_alphabetic()).is_some() {}
+        let keyword = &self.input[token_start..self.position];
+        match keyword {
             "true" => Ok(Token::Boolean(true)),
             "false" => Ok(Token::Boolean(false)),
             "null" => Ok(Token::Null),
             _ => Err(JsonError::UnexpectedToken {
                 expected: "valid keyword".to_string(),
-                found: word,
+                found: keyword.to_string(),
                 position: token_start,
             }),
         }
     }
 
-    fn read_digit(&mut self, ch: char, token_start: usize) -> Result<Token<'a>, JsonError> {
-        let mut num_str = String::with_capacity(20);
-        num_str.push(ch);
+    fn read_digit(&mut self, token_start: usize) -> Result<Token<'a>, JsonError> {
+        while self
+            .advance_if(|ch| matches!(ch, b'0'..=b'9' | b'.' | b'E' | b'e' | b'+' | b'-'))
+            .is_some()
+        {}
 
-        while let Some(ch) =
-            self.advance_if(|ch| matches!(ch, '0'..='9' | '.' | 'E' | 'e' | '+' | '-'))
-        {
-            num_str.push(ch);
-        }
-        match num_str.parse::<f64>() {
+        let number = &self.input[token_start..self.position];
+        match number.parse::<f64>() {
             Ok(num_parsed) => Ok(Token::Number(num_parsed)),
             Err(_) => Err(JsonError::InvalidNumber {
-                value: num_str,
+                value: number.to_string(),
                 position: token_start,
             }),
         }
@@ -120,19 +112,19 @@ impl<'a> Tokenizer<'a> {
                 )));
             }
         }
-        let mut content = String::with_capacity(64);
+        let mut content: Vec<u8> = Vec::with_capacity(64);
         loop {
             match self.advance() {
-                Some('"') => break,
-                Some('\\') => match self.advance() {
+                Some(b'"') => break,
+                Some(b'\\') => match self.advance() {
                     Some(ch) => match ch {
-                        '"' | '\\' | '/' => content.push(ch),
-                        'b' => content.push('\u{0008}'),
-                        'f' => content.push('\u{000C}'),
-                        'n' => content.push('\n'),
-                        'r' => content.push('\r'),
-                        't' => content.push('\t'),
-                        'u' => match self.input.get(self.position..(self.position + 4)) {
+                        b'"' | b'\\' | b'/' => content.push(ch),
+                        b'b' => content.push(b'\x08'),
+                        b'f' => content.push(b'\x0C'),
+                        b'n' => content.push(b'\n'),
+                        b'r' => content.push(b'\r'),
+                        b't' => content.push(b'\t'),
+                        b'u' => match self.input.get(self.position..(self.position + 4)) {
                             Some(hex_chars) => {
                                 // turn hex_chars into String
                                 let hex_str: String = String::from(hex_chars);
@@ -154,7 +146,8 @@ impl<'a> Tokenizer<'a> {
                                     },
                                 )?;
                                 self.position += 4;
-                                content.push(ch);
+                                let mut utf8_buf = [0u8; 4];
+                                content.extend_from_slice(ch.encode_utf8(&mut utf8_buf).as_bytes())
                             }
                             None => {
                                 let remaining: String = self.input[self.position..]
@@ -190,7 +183,9 @@ impl<'a> Tokenizer<'a> {
                 }
             }
         }
-        Ok(Token::String(Cow::Owned(content)))
+        Ok(Token::String(Cow::Owned(
+            String::from_utf8(content).expect("escape decoding always produces valid UTF-8"),
+        )))
     }
 
     /// Consumes the input and returns the full list of tokens.
@@ -204,19 +199,19 @@ impl<'a> Tokenizer<'a> {
         while let Some(ch) = self.advance() {
             let token_start = self.position - 1; // counter has already advanced but token is still the one before
             let token = match ch {
-                ' ' | '\t' | '\n' | '\r' => continue,
-                '{' => Ok(Token::LeftBrace),
-                '}' => Ok(Token::RightBrace),
-                '[' => Ok(Token::LeftBracket),
-                ']' => Ok(Token::RightBracket),
-                ',' => Ok(Token::Comma),
-                ':' => Ok(Token::Colon),
-                ch if ch.is_ascii_alphabetic() => self.read_keyword(ch, token_start),
-                ch if ch.is_ascii_digit() || ch == '-' => self.read_digit(ch, token_start),
-                '"' => self.read_string(token_start),
+                b' ' | b'\t' | b'\n' | b'\r' => continue,
+                b'{' => Ok(Token::LeftBrace),
+                b'}' => Ok(Token::RightBrace),
+                b'[' => Ok(Token::LeftBracket),
+                b']' => Ok(Token::RightBracket),
+                b',' => Ok(Token::Comma),
+                b':' => Ok(Token::Colon),
+                ch if ch.is_ascii_alphabetic() => self.read_keyword(token_start),
+                ch if ch.is_ascii_digit() || ch == b'-' => self.read_digit(token_start),
+                b'"' => self.read_string(token_start),
                 _ => Err(JsonError::UnexpectedToken {
                     expected: "valid JSON token".to_string(),
-                    found: ch.to_string(),
+                    found: (ch as char).to_string(),
                     position: token_start,
                 }),
             };

@@ -116,7 +116,7 @@ fn py_to_json_value<'a>(obj: &Bound<PyAny>) -> PyResult<JsonValue<'a>> {
         for (k, v) in dict.iter() {
             let k = k.extract::<String>()?;
             let v = py_to_json_value(&v)?;
-            map.insert(k, v);
+            map.insert(k.into(), v);
         }
         return Ok(JsonValue::Object(map));
     }

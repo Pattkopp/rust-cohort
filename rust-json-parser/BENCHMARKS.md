@@ -219,3 +219,34 @@ of allocating a fresh `String` per key. Clean re-run, no profiler attached.
   the object path is not the dominant cost; the inverted profile still points at tokenizer
   stepping and general alloc/free traffic.
 - All unit tests + doctests pass under `--no-default-features`.
+
+## Run 12 — Byte-level (`u8`) tokenizer + `Vec<u8>` escape buffer (2026-05-30)
+
+Migrated the tokenizer from `char` to byte (`u8`) processing. `peek`, `advance`, and
+`advance_if` now return/take `u8` via `.copied()` instead of mapping each byte to `char`;
+`tokenize` and the helper match arms use byte literals (`b'{'`, `b'"'`, …). `read_keyword`
+and `read_digit` dropped their leading-`char` parameter and now slice
+`&input[token_start..position]` instead of pushing characters into a `String`. In
+`read_string`, the escape buffer changed from `String` to `Vec<u8>`: ASCII escapes push byte
+literals, `\b`/`\f` push `b'\x08'`/`b'\x0C'`, and `\uXXXX` encodes into a `[u8; 4]` via
+`encode_utf8`; the owned result is rebuilt with `String::from_utf8`. `JsonError::InvalidEscape`
+now stores the offending `char` field as `u8` (Display renders it with `*char as char`), and
+the unexpected-token `found` is built with `(ch as char).to_string()`. The Python binding's
+dict path now converts keys with `.into()` to match the `Cow<'a, str>` object-key type from
+Run 11. Clean re-run, no profiler attached.
+
+| Fixture | Size | Rust | Python json (C) | simplejson | vs json (C) | vs simplejson |
+|---|---|---|---|---|---|---|
+| verysmall.json | 7 B | 0.000302s | 0.000512s | 0.000680s | 1.70x faster | 2.25x faster |
+| twitter.json | 568 KB | 1.119076s | 2.417370s | 1.981972s | 2.16x faster | 1.77x faster |
+| citm_catalog.json | 1.7 MB | 5.365514s | 5.342224s | 6.291897s | 1.00x slower | 1.17x faster |
+| canada.json | 2.3 MB | 7.577325s | 20.743932s | 22.804128s | 2.74x faster | 3.01x faster |
+
+### Observations
+
+- citm_catalog.json: 7.44s (Run 11) → 5.37s; now effectively at parity with json(C) (5.34s),
+  the closest this fixture has come. It was previously the only fixture slower than json(C).
+- twitter.json: 1.64s (Run 11) → 1.12s; 2.16x faster than json(C).
+- canada.json: 9.42s (Run 11) → 7.58s.
+- verysmall.json: 0.000220s (Run 11) → 0.000302s (within noise at 7 bytes).
+- 78 unit tests pass under `--no-default-features`; release extension builds under maturin.

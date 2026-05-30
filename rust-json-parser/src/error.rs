@@ -57,8 +57,8 @@ pub enum JsonError {
     /// JSON permits only `\"`, `\\`, `\/`, `\b`, `\f`, `\n`, `\r`, `\t`,
     /// and `\uXXXX`. Anything else (e.g. `\q`) produces this error.
     InvalidEscape {
-        /// The character after the backslash.
-        char: char,
+        /// The byte after the backslash.
+        char: u8,
         /// Byte offset of the backslash.
         position: usize,
     },
@@ -102,7 +102,7 @@ impl fmt::Display for JsonError {
                 write!(
                     f,
                     "invalid escape character {} at position {}",
-                    char, position
+                    *char as char, position
                 )
             }
             JsonError::InvalidUnicode { sequence, position } => {
@@ -178,7 +178,7 @@ mod tests {
     #[test]
     fn test_invalid_escape_display() {
         let err = JsonError::InvalidEscape {
-            char: 'q',
+            char: b'q',
             position: 5,
         };
         let msg = format!("{}", err);
@@ -199,7 +199,7 @@ mod tests {
     #[test]
     fn test_error_is_std_error() {
         let err = JsonError::InvalidEscape {
-            char: 'x',
+            char: b'x',
             position: 0,
         };
         let _: &dyn std::error::Error = &err; // Must implement Error trait
