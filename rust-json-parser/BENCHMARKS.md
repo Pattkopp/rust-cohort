@@ -193,3 +193,29 @@ Same code as Run 9. Re-run with no profiler attached; two consecutive runs agree
 - citm_catalog.json: 5.15s (Run 8) → 6.58s.
 - canada.json: 7.76s (Run 8) → 9.30s.
 - 78 unit tests + 13 doctests pass under `--no-default-features`.
+
+## Run 11 — `Cow<'a, str>` object keys in `JsonValue::Object` (2026-05-30)
+
+Changed the `JsonValue::Object` map key type from owned `String` to `Cow<'a, str>`, and
+`JsonParser::expect_string_key` now returns the token's `Cow` directly instead of calling
+`.to_string()`. Object keys without escapes now borrow from the input (zero-copy) instead
+of allocating a fresh `String` per key. Clean re-run, no profiler attached.
+
+| Fixture | Size | Rust | Python json (C) | simplejson | vs json (C) | vs simplejson |
+|---|---|---|---|---|---|---|
+| verysmall.json | 7 B | 0.000220s | 0.000619s | 0.000801s | 2.81x faster | 3.63x faster |
+| twitter.json | 568 KB | 1.642093s | 3.131327s | 2.033141s | 1.91x faster | 1.24x faster |
+| citm_catalog.json | 1.7 MB | 7.443741s | 5.847893s | 7.301560s | 1.27x slower | 1.02x slower |
+| canada.json | 2.3 MB | 9.417103s | 21.802059s | 22.482100s | 2.32x faster | 2.39x faster |
+
+### Observations
+
+- twitter.json: 1.37s (Run 10) → 1.64s.
+- citm_catalog.json: 6.58s (Run 10) → 7.44s; still ~1.27x slower than json(C).
+- canada.json: 9.30s (Run 10) → 9.42s.
+- No clear, measurable gain on `citm_catalog` from this change — the deltas are within
+  the run-to-run variance seen between Runs 9/10, and the `json(C)` baseline drifted up by
+  a similar proportion this run. Borrowed keys remove an allocation per object entry, but
+  the object path is not the dominant cost; the inverted profile still points at tokenizer
+  stepping and general alloc/free traffic.
+- All unit tests + doctests pass under `--no-default-features`.

@@ -36,7 +36,7 @@ pub enum JsonValue<'a> {
     /// JSON array — an ordered sequence of [`JsonValue`]s.
     Array(Vec<JsonValue<'a>>),
     /// JSON object — a map of string keys to [`JsonValue`]s.
-    Object(FxHashMap<String, JsonValue<'a>>),
+    Object(FxHashMap<Cow<'a, str>, JsonValue<'a>>),
 }
 
 impl<'a> JsonValue<'a> {
@@ -131,7 +131,7 @@ impl<'a> JsonValue<'a> {
     /// let obj = value.as_object().unwrap();
     /// assert!(obj.contains_key("a"));
     /// ```
-    pub fn as_object(&self) -> Option<&FxHashMap<String, JsonValue<'_>>> {
+    pub fn as_object(&self) -> Option<&FxHashMap<Cow<'a, str>, JsonValue<'_>>> {
         if let JsonValue::Object(obj) = self {
             Some(obj)
         } else {

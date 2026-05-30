@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::VecDeque;
 
 use rustc_hash::{FxBuildHasher, FxHashMap};
@@ -91,7 +92,7 @@ impl<'a> JsonParser<'a> {
     }
 
     fn parse_object(&mut self) -> Result<JsonValue<'a>> {
-        let mut obj: FxHashMap<String, JsonValue> =
+        let mut obj: FxHashMap<Cow<'a, str>, JsonValue> =
             FxHashMap::with_capacity_and_hasher(16, FxBuildHasher);
         if matches!(self.peek(), Some(Token::RightBrace)) {
             self.advance();
@@ -194,9 +195,9 @@ impl<'a> JsonParser<'a> {
         }
     }
 
-    fn expect_string_key(&mut self) -> Result<String> {
+    fn expect_string_key(&mut self) -> Result<Cow<'a, str>> {
         match self.advance() {
-            Some(Token::String(key)) => Ok(key.to_string().into()),
+            Some(Token::String(key)) => Ok(key),
             Some(t) => Err(JsonError::UnexpectedToken {
                 expected: "string as key for an object".to_string(),
                 found: format!("{:?}", t),
@@ -426,7 +427,10 @@ mod tests {
         fn test_parse_object_single_key() {
             let value = JsonParser::new().parse(r#"{"key": "value"}"#).unwrap();
             let mut expected = FxHashMap::default();
-            expected.insert("key".to_string(), JsonValue::String("value".to_string().into()));
+            expected.insert(
+                Cow::Borrowed("key"),
+                JsonValue::String("value".to_string().into()),
+            );
             assert_eq!(value, JsonValue::Object(expected));
         }
 
