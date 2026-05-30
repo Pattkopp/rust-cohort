@@ -5,7 +5,7 @@ Each run uses `uv run python -m rust_json_parser --benchmark` with `--release` b
 
 ## Run 1 — Baseline (2026-05-25)
 
-No optimizations applied yet. This is the starting point.
+No optimizations applied. Starting point.
 
 | Fixture | Size | Rust | Python json (C) | simplejson | vs json (C) | vs simplejson |
 |---|---|---|---|---|---|---|
@@ -16,14 +16,11 @@ No optimizations applied yet. This is the starting point.
 
 ### Observations
 
-- Rust wins on tiny input (7 bytes) but loses on all larger files.
-- The gap widens with input size, suggesting per-token overhead.
-- Slower than even pure Python (simplejson) — indicates a systemic issue, not just algorithm choice.
+- Rust is faster than both Python implementations on verysmall.json only; slower than both on twitter, citm_catalog, and canada.
 
 ## Run 2 — `String::with_capacity(20)` in `read_digit` (2026-05-25)
 
-Pre-allocate the number-building string in `Tokenizer::read_digit` to avoid
-repeated heap reallocations during number parsing.
+Pre-allocate the number-building string in `Tokenizer::read_digit`.
 
 | Fixture | Size | Rust | Python json (C) | simplejson | vs json (C) | vs simplejson |
 |---|---|---|---|---|---|---|
@@ -34,15 +31,14 @@ repeated heap reallocations during number parsing.
 
 ### Observations
 
-- canada.json improved dramatically: from 38.2s → 11.4s (3.4x speedup), now faster than both Python implementations.
-- citm_catalog.json improved from 7.8s → 6.5s (17% faster), gap with Python narrowed.
-- twitter.json roughly unchanged — string-heavy file, so number allocation was not the bottleneck there.
-- verysmall.json regressed slightly, likely measurement noise on a 7-byte input.
+- canada.json: 38.18s (Run 1) → 11.37s.
+- citm_catalog.json: 7.85s → 6.48s.
+- twitter.json: 3.46s → 3.44s.
+- verysmall.json: 0.000482s → 0.000924s.
 
 ## Run 3 — `String::with_capacity(64)` in `read_string` (2026-05-25)
 
-Pre-allocate the string-building buffer in `Tokenizer::read_string` to avoid
-repeated heap reallocations during string parsing.
+Pre-allocate the string-building buffer in `Tokenizer::read_string`.
 
 | Fixture | Size | Rust | Python json (C) | simplejson | vs json (C) | vs simplejson |
 |---|---|---|---|---|---|---|
@@ -53,15 +49,14 @@ repeated heap reallocations during string parsing.
 
 ### Observations
 
-- twitter.json and citm_catalog.json essentially unchanged — the `read_string` pre-allocation did not produce a measurable improvement on string-heavy files.
-- canada.json slightly slower than Run 2 (13.2s vs 11.4s), likely run-to-run variance rather than a regression.
-- verysmall.json recovered to faster-than-Python, confirming Run 2's regression was measurement noise.
-- The string reallocation cost is not the primary bottleneck for these files. The next optimization target should address a different area — likely the `Vec<char>` conversion on line 45 or the token cloning in the parser.
+- twitter.json: 3.44s (Run 2) → 3.58s.
+- citm_catalog.json: 6.48s → 7.28s.
+- canada.json: 11.37s → 13.25s.
+- verysmall.json: 0.000924s → 0.000308s.
 
 ## Run 4 — `String::with_capacity(256)` in `read_string` (2026-05-25)
 
-Increased string buffer pre-allocation from 64 to 256 bytes to test whether
-larger capacity reduces reallocations for longer strings (tweets, URLs, bios).
+Increased the `read_string` buffer pre-allocation from 64 to 256 bytes.
 
 | Fixture | Size | Rust | Python json (C) | simplejson | vs json (C) | vs simplejson |
 |---|---|---|---|---|---|---|
@@ -72,16 +67,18 @@ larger capacity reduces reallocations for longer strings (tweets, URLs, bios).
 
 ### Observations
 
-- twitter.json regressed from 3.58s (Run 3) to 3.92s — the larger allocation wastes memory on short strings (keys like "id", "name"), and the extra memory pressure offsets any reallocation savings.
-- Profiling confirmed that `String::push`/`reserve` chain disappeared, but `HashMap` operations in `parse_object` became the new dominant cost (6.1%).
-- canada.json stable at 11.4s, consistent with Run 2.
-- Conclusion: 256 is too large. Revert to 64 and pursue a different optimization next.
+- twitter.json: 3.58s (Run 3) → 3.92s.
+- citm_catalog.json: 7.28s → 6.94s.
+- canada.json: 13.25s → 11.35s.
+- verysmall.json: 0.000308s → 0.000280s.
+- Profiling showed `HashMap` operations in `parse_object` at 6.1% of samples.
 
 ## Run 5 — Replace `Vec<char>` with `&str` in Tokenizer (2026-05-26)
 
 Eliminated the `input.chars().collect()` allocation in `Tokenizer::new`. The struct
-now borrows the input `&str` directly and uses byte-level access via `.as_bytes()`.
-Introduced lifetime annotations (`'a`) on the `Tokenizer` struct.
+now borrows the input `&str` and uses byte-level access via `.as_bytes()`. Added a
+lifetime annotation (`'a`) on the `Tokenizer` struct. Benchmark run with samply and a
+browser active.
 
 | Fixture | Size | Rust | Python json (C) | simplejson | vs json (C) | vs simplejson |
 |---|---|---|---|---|---|---|
@@ -92,15 +89,14 @@ Introduced lifetime annotations (`'a`) on the `Tokenizer` struct.
 
 ### Observations
 
-- canada.json regressed significantly: 11.4s (Run 4) → 31.3s. The `Vec<char>` elimination should have helped, but byte-level access with `u8`-to-`char` casting in `advance()` may be introducing overhead on this number-heavy file (2.2M of coordinate data parsed character by character).
-- twitter.json improved slightly: 3.92s (Run 4) → 3.25s (7% better than Run 3's 3.58s).
-- citm_catalog.json improved: 6.94s (Run 4) → 6.17s, now nearly matching simplejson.
-- The canada.json regression needs profiling. Likely cause: the byte-to-char conversion in `advance()` runs millions of times for number parsing, and the `.map()` closure may not be optimizing as well as the old `.copied()` on `Vec<char>`.
+- canada.json: 11.35s (Run 4) → 31.27s, run under profiler/browser load (see Run 6 for the clean re-run).
+- twitter.json: 3.92s → 3.25s.
+- citm_catalog.json: 6.94s → 6.17s.
+- verysmall.json: 0.000280s → 0.000282s.
 
-## Run 6 — Re-benchmark `&str` refactor under lower system load (2026-05-26)
+## Run 6 — Re-benchmark `&str` refactor, no profiler load (2026-05-26)
 
-Same code as Run 5. Re-run to verify whether the canada.json regression was real
-or caused by system load during Run 5 (profiler and browser were active).
+Same code as Run 5. Re-run with no profiler and no browser active.
 
 | Fixture | Size | Rust | Python json (C) | simplejson | vs json (C) | vs simplejson |
 |---|---|---|---|---|---|---|
@@ -111,16 +107,15 @@ or caused by system load during Run 5 (profiler and browser were active).
 
 ### Observations
 
-- canada.json regression was NOT real: 10.6s here vs 31.3s in Run 5. The Run 5 measurement was inflated by system load (profiler + browser). True performance is consistent with Run 2 (11.4s) and slightly better.
-- twitter.json at 3.48s — slightly above Run 5's 3.25s, likely run-to-run variance. Still improved vs Run 4 (3.92s).
-- citm_catalog.json at 5.74s — improved from Run 5's 6.17s and Run 4's 6.94s.
-- The `&str` refactor is a net positive across all files. Next target: HashMap overhead in `parse_object` (~17% of canada.json profile).
+- canada.json: 31.27s (Run 5, under load) → 10.59s.
+- twitter.json: 3.25s → 3.48s.
+- citm_catalog.json: 6.17s → 5.74s.
+- verysmall.json: 0.000282s → 0.000315s.
 
 ## Run 7 — `HashMap::with_capacity(16)` + `FxHashMap` in parse_object (2026-05-26)
 
-Two changes: pre-size HashMap to 16 entries in `parse_object`, and replace
+Pre-size the HashMap to 16 entries in `parse_object`, and replace
 `std::collections::HashMap` with `rustc_hash::FxHashMap` throughout (parser + JsonValue).
-FxHash is a faster, non-cryptographic hasher suited for trusted input like JSON keys.
 
 | Fixture | Size | Rust | Python json (C) | simplejson | vs json (C) | vs simplejson |
 |---|---|---|---|---|---|---|
@@ -131,20 +126,19 @@ FxHash is a faster, non-cryptographic hasher suited for trusted input like JSON 
 
 ### Observations
 
-- canada.json at 11.2s — consistent with Run 6 (10.6s). The FxHashMap swap and pre-sizing did not produce a measurable improvement here, likely because canada.json has very few object keys (mostly arrays of number coordinates).
-- twitter.json at 3.26s — matching Run 5 (3.25s) and Run 6 (3.48s). No measurable change from FxHashMap, though this file has many small objects.
-- citm_catalog.json at 5.71s — consistent with Run 6 (5.74s). Stable.
-- The FxHashMap change is architecturally correct (removes unnecessary cryptographic hashing overhead) but the benchmark files don't stress object-key hashing enough to show a clear difference. The improvement may be more visible on JSON with larger objects or more keys. Next target: Token cloning in parser's `advance()` (~1% overhead).
+- canada.json: 10.59s (Run 6) → 11.20s.
+- twitter.json: 3.48s → 3.26s.
+- citm_catalog.json: 5.74s → 5.71s.
+- verysmall.json: 0.000315s → 0.000326s.
 
 ## Run 8 — Replace index-based token cursor with `VecDeque::pop_front` (2026-05-28)
 
-**Machine change: MacBook Pro M4 Max (Runs 1–7 were on MacBook Air M3).
-Numbers are not directly comparable to previous runs due to the hardware change.**
+**Machine change: MacBook Pro M4 Max (Runs 1–7 were on MacBook Air M3). Numbers are not
+directly comparable to Runs 1–7.**
 
-Replaced the index-based cursor in `JsonParser` with `VecDeque::pop_front`. The parser
-no longer maintains an index into the token buffer — `front()` peeks, `pop_front()`
-consumes. The `position` field (renamed from `current`) is now purely a token counter
-for error reporting. `is_at_end()` was eliminated in favor of `peek().is_none()`.
+Replaced the index-based cursor in `JsonParser` with `VecDeque::pop_front`: `front()`
+peeks, `pop_front()` consumes. The `position` field (renamed from `current`) is now a
+token counter for error reporting. `is_at_end()` removed in favor of `peek().is_none()`.
 
 | Fixture | Size | Rust | Python json (C) | simplejson | vs json (C) | vs simplejson |
 |---|---|---|---|---|---|---|
@@ -155,20 +149,20 @@ for error reporting. `is_at_end()` was eliminated in favor of `peek().is_none()`
 
 ### Observations
 
-- **twitter.json crossed the line**: Rust now faster than both Python implementations. Previous best on M3 was 3.25s (1.44x slower than json C); now 1.65s and 1.41x faster. The `pop_front` change eliminates redundant indexing on every token access, which compounds over twitter.json's ~30k tokens.
-- canada.json at 7.76s, down from 11.2s (Run 7). Rust is now 2.12x faster than Python's json(C).
-- citm_catalog.json remains the one file where Rust trails — 1.11x slower than json(C). This file is heavy on string keys and object structure; the remaining overhead is likely in string allocation and HashMap insertion.
-- verysmall.json shows the M4 Max baseline: 4.51x faster than simplejson, up from 1.83x on M3.
-- Hardware change accounts for a significant portion of the raw time improvement. The architectural change (pop_front vs index) contributes the twitter.json ratio flip — that comparison is against Python running on the same M4 Max hardware.
+- New M4 Max baseline; not comparable to Runs 1–7.
+- twitter.json (1.65s): faster than both json(C) (2.32s) and simplejson (1.74s).
+- canada.json: 7.76s; 2.12x faster than json(C).
+- citm_catalog.json: 5.15s; 1.11x slower than json(C).
 
-## Run 9 — `Cow<'a, str>` borrow fast-path in `read_string` (2026-05-30)
+## Run 9 — `Cow<'a, str>` borrow fast-path in `read_string`, under profiler load (2026-05-30)
 
-Added a borrow fast-path in `Tokenizer::read_string`. A single `find(['\\', '"'])`
-scan locates the first special byte; when a closing `"` arrives before any `\`, the
-literal has no escapes and the content is returned as `Cow::Borrowed`, slicing directly
-into the input with no allocation or copy. Literals containing escapes fall through
-unchanged to the owned escape-processing loop (`Cow::Owned`). Requires the `Cow`/lifetime
-plumbing threaded through `Token<'a>`, `JsonValue<'a>`, and `JsonParser<'a>`.
+Added a borrow fast-path in `Tokenizer::read_string`. A single `find(['\\', '"'])` scan
+locates the first special byte; when a closing `"` arrives before any `\`, the literal has
+no escapes and the content is returned as `Cow::Borrowed`, slicing into the input with no
+allocation or copy. Literals containing escapes fall through to the owned escape-processing
+loop (`Cow::Owned`). Requires the `Cow`/lifetime plumbing threaded through `Token<'a>`,
+`JsonValue<'a>`, and `JsonParser<'a>`. Benchmark run with samply and the Firefox Profiler
+active.
 
 | Fixture | Size | Rust | Python json (C) | simplejson | vs json (C) | vs simplejson |
 |---|---|---|---|---|---|---|
@@ -179,7 +173,23 @@ plumbing threaded through `Token<'a>`, `JsonValue<'a>`, and `JsonParser<'a>`.
 
 ### Observations
 
-- Profiling (`profile_bench` under samply) shows heap alloc + dealloc fell from the ~50% baseline to ~14% of samples (`libsystem_malloc` 6.9% + `alloc::alloc::dealloc` 6.8%); `Tokenizer::tokenize` scanning is now the dominant self cost.
-- twitter.json — the most string-heavy file — improved from 1.65s (Run 8) to 1.48s, the expected target of the fast-path.
-- citm_catalog.json (6.65s) and canada.json (9.46s) came in slower than Run 8 (5.15s, 7.76s). canada is number-heavy and gains nothing from a string optimization, and citm should have benefited, so the across-the-board slowdown is inconsistent with the change and matches the system load during this run (samply + Firefox Profiler active). Needs a clean re-run with no profiler attached before treating it as real.
-- Correctness unchanged: 78 unit tests + 13 doctests pass under `--no-default-features`.
+- Run taken with samply and the Firefox Profiler active.
+- Profiling showed heap alloc + dealloc at ~14% of samples (`libsystem_malloc` 6.9% + `alloc::alloc::dealloc` 6.8%), down from the ~50% baseline.
+
+## Run 10 — `Cow<'a, str>` borrow fast-path in `read_string`, clean re-run (2026-05-30)
+
+Same code as Run 9. Re-run with no profiler attached; two consecutive runs agreed within ~1%.
+
+| Fixture | Size | Rust | Python json (C) | simplejson | vs json (C) | vs simplejson |
+|---|---|---|---|---|---|---|
+| verysmall.json | 7 B | 0.000197s | 0.000492s | 0.000593s | 2.50x faster | 3.01x faster |
+| twitter.json | 568 KB | 1.369181s | 2.401783s | 1.989226s | 1.75x faster | 1.45x faster |
+| citm_catalog.json | 1.7 MB | 6.580324s | 5.221518s | 5.399443s | 1.26x slower | 1.22x slower |
+| canada.json | 2.3 MB | 9.296854s | 20.415003s | 22.898312s | 2.20x faster | 2.46x faster |
+
+### Observations
+
+- twitter.json: 1.65s (Run 8) → 1.37s.
+- citm_catalog.json: 5.15s (Run 8) → 6.58s.
+- canada.json: 7.76s (Run 8) → 9.30s.
+- 78 unit tests + 13 doctests pass under `--no-default-features`.
