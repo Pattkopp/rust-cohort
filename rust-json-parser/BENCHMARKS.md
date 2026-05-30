@@ -160,3 +160,26 @@ for error reporting. `is_at_end()` was eliminated in favor of `peek().is_none()`
 - citm_catalog.json remains the one file where Rust trails — 1.11x slower than json(C). This file is heavy on string keys and object structure; the remaining overhead is likely in string allocation and HashMap insertion.
 - verysmall.json shows the M4 Max baseline: 4.51x faster than simplejson, up from 1.83x on M3.
 - Hardware change accounts for a significant portion of the raw time improvement. The architectural change (pop_front vs index) contributes the twitter.json ratio flip — that comparison is against Python running on the same M4 Max hardware.
+
+## Run 9 — `Cow<'a, str>` borrow fast-path in `read_string` (2026-05-30)
+
+Added a borrow fast-path in `Tokenizer::read_string`. A single `find(['\\', '"'])`
+scan locates the first special byte; when a closing `"` arrives before any `\`, the
+literal has no escapes and the content is returned as `Cow::Borrowed`, slicing directly
+into the input with no allocation or copy. Literals containing escapes fall through
+unchanged to the owned escape-processing loop (`Cow::Owned`). Requires the `Cow`/lifetime
+plumbing threaded through `Token<'a>`, `JsonValue<'a>`, and `JsonParser<'a>`.
+
+| Fixture | Size | Rust | Python json (C) | simplejson | vs json (C) | vs simplejson |
+|---|---|---|---|---|---|---|
+| verysmall.json | 7 B | 0.000193s | 0.000511s | 0.009472s | 2.64x faster | 49.02x faster |
+| twitter.json | 568 KB | 1.475477s | 2.508074s | 2.059596s | 1.70x faster | 1.40x faster |
+| citm_catalog.json | 1.7 MB | 6.648539s | 5.468216s | 5.505258s | 1.22x slower | 1.21x slower |
+| canada.json | 2.3 MB | 9.459157s | 21.379794s | 23.699132s | 2.26x faster | 2.51x faster |
+
+### Observations
+
+- Profiling (`profile_bench` under samply) shows heap alloc + dealloc fell from the ~50% baseline to ~14% of samples (`libsystem_malloc` 6.9% + `alloc::alloc::dealloc` 6.8%); `Tokenizer::tokenize` scanning is now the dominant self cost.
+- twitter.json — the most string-heavy file — improved from 1.65s (Run 8) to 1.48s, the expected target of the fast-path.
+- citm_catalog.json (6.65s) and canada.json (9.46s) came in slower than Run 8 (5.15s, 7.76s). canada is number-heavy and gains nothing from a string optimization, and citm should have benefited, so the across-the-board slowdown is inconsistent with the change and matches the system load during this run (samply + Firefox Profiler active). Needs a clean re-run with no profiler attached before treating it as real.
+- Correctness unchanged: 78 unit tests + 13 doctests pass under `--no-default-features`.

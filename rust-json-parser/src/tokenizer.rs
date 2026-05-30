@@ -110,6 +110,16 @@ impl<'a> Tokenizer<'a> {
 
     fn read_string(&mut self, token_start: usize) -> Result<Token<'a>, JsonError> {
         let start = self.position;
+        if let Some(special_offset) = self.input[start..].find(['\\', '"']) {
+            let special_index = start + special_offset;
+            let special_byte = self.input.as_bytes()[special_index];
+            if special_byte == b'"' {
+                self.position = special_index + 1;
+                return Ok(Token::String(Cow::Borrowed(
+                    &self.input[start..special_index],
+                )));
+            }
+        }
         let mut content = String::with_capacity(64);
         loop {
             match self.advance() {
