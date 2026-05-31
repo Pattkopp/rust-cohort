@@ -14,10 +14,11 @@ type TokenResult<'a> = Result<Token<'a>>; // = std::result::Result<Token<'a>, Js
 
 /// A recursive descent JSON parser.
 ///
-/// `JsonParser` tokenizes a JSON string and then parses the token stream
-/// into a [`JsonValue`] tree. Create one with [`JsonParser::new()`],
-/// passing the input, then call [`parse()`](JsonParser::parse) once to
-/// consume the parser and produce the value.
+/// `JsonParser` reads tokens on demand from a [`Tokenizer`] and parses them
+/// into a [`JsonValue`] tree in a single pass — no intermediate token
+/// collection is built. Create one with [`JsonParser::new()`], passing the
+/// input, then call [`parse()`](JsonParser::parse) once to consume the parser
+/// and produce the value.
 ///
 /// # Examples
 ///

@@ -31,16 +31,29 @@ pub enum Token<'a> {
     Null,
 }
 
-/// Converts a JSON input string into a sequence of [`Token`]s.
+/// A streaming tokenizer that turns a JSON input string into [`Token`]s.
 ///
-/// The tokenizer is used internally by [`crate::JsonParser`]. It handles
-/// whitespace, string escapes (including `\uXXXX`), numbers, booleans, and null.
+/// `Tokenizer` implements [`Iterator`], yielding one `Result<Token, JsonError>`
+/// at a time as it scans the input — it never builds a full token list. It
+/// handles whitespace, string escapes (including `\uXXXX`), numbers, booleans,
+/// and null. [`crate::JsonParser`] drives it internally via
+/// [`Peekable`](std::iter::Peekable).
+///
+/// # Examples
+///
+/// ```rust
+/// use rust_json_parser::Tokenizer;
+///
+/// // Pull tokens lazily, or collect them all (short-circuiting on first error).
+/// let tokens: Vec<_> = Tokenizer::new("[1, true]").collect::<Result<_, _>>().unwrap();
+/// assert_eq!(tokens.len(), 5);
+/// ```
 pub struct Tokenizer<'a> {
     input: &'a str,
     position: usize,
 }
 
-// Iterator tratit
+// Iterator trait
 impl<'a> Iterator for Tokenizer<'a> {
     type Item = Result<Token<'a>, JsonError>;
 
