@@ -14,8 +14,7 @@ use std::fmt;
 /// ```rust
 /// use rust_json_parser::{JsonParser, JsonError};
 ///
-/// let mut parser = JsonParser::new();
-/// let err = parser.parse("@").unwrap_err();
+/// let err = JsonParser::new("@").parse().unwrap_err();
 ///
 /// assert!(matches!(err, JsonError::UnexpectedToken { position: 0, .. }));
 /// println!("{err}"); // "unexpected token at position 0: expected valid JSON token, found @"

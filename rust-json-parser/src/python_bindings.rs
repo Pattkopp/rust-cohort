@@ -43,7 +43,7 @@ impl From<JsonError> for PyErr {
 #[pyfunction]
 // changed the signature because of https://github.com/PyO3/pyo3/discussions/4826
 fn parse_json<'py>(py: Python<'py>, input: &str) -> PyResult<Bound<'py, PyAny>> {
-    JsonParser::new().parse(input)?.into_bound_py_any(py)
+    JsonParser::new(input).parse()?.into_bound_py_any(py)
 }
 
 /// Reads a file at `path` and parses its contents as JSON.
@@ -143,11 +143,11 @@ fn benchmark_performance(
 
     // Rust Parser
     for _ in 0..WARMUP_ITERATIONS {
-        let _ = JsonParser::new().parse(json_str)?;
+        let _ = JsonParser::new(json_str).parse()?;
     }
     let now = Instant::now();
     for _ in 0..iterations {
-        let _ = JsonParser::new().parse(json_str)?;
+        let _ = JsonParser::new(json_str).parse()?;
     }
     let rust_time = now.elapsed().as_secs_f64();
 

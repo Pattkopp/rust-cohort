@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::VecDeque};
+use std::borrow::Cow;
 
 use crate::error::JsonError;
 
@@ -40,6 +40,16 @@ pub struct Tokenizer<'a> {
     position: usize,
 }
 
+// Iterator tratit
+impl<'a> Iterator for Tokenizer<'a> {
+    type Item = Result<Token<'a>, JsonError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next_token()
+    }
+}
+
+// inherent impl block
 impl<'a> Tokenizer<'a> {
     /// Creates a new tokenizer for the given input string.
     pub fn new(input: &'a str) -> Self {
@@ -47,6 +57,31 @@ impl<'a> Tokenizer<'a> {
     }
 
     // === Helper Functions ===
+    fn next_token(&mut self) -> Option<Result<Token<'a>, JsonError>> {
+        while let Some(ch) = self.advance() {
+            let token_start = self.position - 1;
+            let token = match ch {
+                b' ' | b'\t' | b'\n' | b'\r' => continue,
+                b'{' => Ok(Token::LeftBrace),
+                b'}' => Ok(Token::RightBrace),
+                b'[' => Ok(Token::LeftBracket),
+                b']' => Ok(Token::RightBracket),
+                b',' => Ok(Token::Comma),
+                b':' => Ok(Token::Colon),
+                ch if ch.is_ascii_alphabetic() => self.read_keyword(token_start),
+                ch if ch.is_ascii_digit() || ch == b'-' => self.read_digit(token_start),
+                b'"' => self.read_string(token_start),
+                _ => Err(JsonError::UnexpectedToken {
+                    expected: "valid JSON token".to_string(),
+                    found: (ch as char).to_string(),
+                    position: token_start,
+                }),
+            };
+            return Some(token);
+        }
+        None
+    }
+
     // look at current char without advancing
     fn peek(&self) -> Option<u8> {
         self.input.as_bytes().get(self.position).copied()
@@ -188,37 +223,6 @@ impl<'a> Tokenizer<'a> {
         )))
     }
 
-    /// Consumes the input and returns the full list of tokens.
-    ///
-    /// # Errors
-    ///
-    /// Returns a [`JsonError`] if the input contains invalid tokens,
-    /// bad escape sequences, or malformed numbers.
-    pub fn tokenize(&mut self) -> Result<VecDeque<Token<'a>>, JsonError> {
-        let mut tokens = VecDeque::new();
-        while let Some(ch) = self.advance() {
-            let token_start = self.position - 1; // counter has already advanced but token is still the one before
-            let token = match ch {
-                b' ' | b'\t' | b'\n' | b'\r' => continue,
-                b'{' => Ok(Token::LeftBrace),
-                b'}' => Ok(Token::RightBrace),
-                b'[' => Ok(Token::LeftBracket),
-                b']' => Ok(Token::RightBracket),
-                b',' => Ok(Token::Comma),
-                b':' => Ok(Token::Colon),
-                ch if ch.is_ascii_alphabetic() => self.read_keyword(token_start),
-                ch if ch.is_ascii_digit() || ch == b'-' => self.read_digit(token_start),
-                b'"' => self.read_string(token_start),
-                _ => Err(JsonError::UnexpectedToken {
-                    expected: "valid JSON token".to_string(),
-                    found: (ch as char).to_string(),
-                    position: token_start,
-                }),
-            };
-            tokens.push_back(token?);
-        }
-        Ok(tokens)
-    }
 }
 
 #[cfg(test)]
@@ -231,17 +235,13 @@ mod tests {
     fn test_tokenizer_struct_creation() {
         let _tokenizer = Tokenizer::new(r#""hello""#);
         // Tokenizer should be created without error
-        // Internal state is private, so we test via tokenize()
+        // Internal state is private, so we exercise it via the iterator
     }
 
     #[test]
     fn test_tokenizer_multiple_tokens() {
-        // Tests that a single tokenize() call handles multiple tokens
-        // Note: Unlike Python iterators, calling tokenize() again on the same
-        // instance would return empty - the input has been consumed.
-        // Create a new Tokenizer instance if you need to parse new input.
-        let mut tokenizer = Tokenizer::new("123 456");
-        let tokens = tokenizer.tokenize().unwrap();
+        // Collecting the iterator yields every token in order.
+        let tokens = Tokenizer::new("123 456").collect::<Result<Vec<_>, _>>().unwrap();
         assert_eq!(tokens.len(), 2);
     }
 
@@ -249,34 +249,28 @@ mod tests {
 
     #[test]
     fn test_tokenize_number() {
-        let mut tokenizer = Tokenizer::new("42");
-        let tokens = tokenizer.tokenize().unwrap();
+        let tokens = Tokenizer::new("42").collect::<Result<Vec<_>, _>>().unwrap();
         assert_eq!(tokens, vec![Token::Number(42.0)]);
     }
 
     #[test]
     fn test_tokenize_negative_number() {
-        let mut tokenizer = Tokenizer::new("-9.6");
-        let tokens = tokenizer.tokenize().unwrap();
+        let tokens = Tokenizer::new("-9.6").collect::<Result<Vec<_>, _>>().unwrap();
         assert_eq!(tokens, vec![Token::Number(-9.6)]);
     }
 
     #[test]
     fn test_tokenize_literals() {
-        let mut t1 = Tokenizer::new("true");
-        assert_eq!(t1.tokenize().unwrap(), vec![Token::Boolean(true)]);
+        assert_eq!(Tokenizer::new("true").collect::<Result<Vec<_>, _>>().unwrap(), vec![Token::Boolean(true)]);
 
-        let mut t2 = Tokenizer::new("false");
-        assert_eq!(t2.tokenize().unwrap(), vec![Token::Boolean(false)]);
+        assert_eq!(Tokenizer::new("false").collect::<Result<Vec<_>, _>>().unwrap(), vec![Token::Boolean(false)]);
 
-        let mut t3 = Tokenizer::new("null");
-        assert_eq!(t3.tokenize().unwrap(), vec![Token::Null]);
+        assert_eq!(Tokenizer::new("null").collect::<Result<Vec<_>, _>>().unwrap(), vec![Token::Null]);
     }
 
     #[test]
     fn test_tokenize_simple_string() {
-        let mut tokenizer = Tokenizer::new(r#""hello""#);
-        let tokens = tokenizer.tokenize().unwrap();
+        let tokens = Tokenizer::new(r#""hello""#).collect::<Result<Vec<_>, _>>().unwrap();
         assert_eq!(tokens, vec![Token::String("hello".to_string().into())]);
     }
 
@@ -284,8 +278,7 @@ mod tests {
 
     #[test]
     fn test_escape_newline() {
-        let mut tokenizer = Tokenizer::new(r#""hello\nworld""#);
-        let tokens = tokenizer.tokenize().unwrap();
+        let tokens = Tokenizer::new(r#""hello\nworld""#).collect::<Result<Vec<_>, _>>().unwrap();
         assert_eq!(
             tokens,
             vec![Token::String("hello\nworld".to_string().into())]
@@ -294,15 +287,13 @@ mod tests {
 
     #[test]
     fn test_escape_tab() {
-        let mut tokenizer = Tokenizer::new(r#""col1\tcol2""#);
-        let tokens = tokenizer.tokenize().unwrap();
+        let tokens = Tokenizer::new(r#""col1\tcol2""#).collect::<Result<Vec<_>, _>>().unwrap();
         assert_eq!(tokens, vec![Token::String("col1\tcol2".to_string().into())]);
     }
 
     #[test]
     fn test_escape_quote() {
-        let mut tokenizer = Tokenizer::new(r#""say \"hello\"""#);
-        let tokens = tokenizer.tokenize().unwrap();
+        let tokens = Tokenizer::new(r#""say \"hello\"""#).collect::<Result<Vec<_>, _>>().unwrap();
         assert_eq!(
             tokens,
             vec![Token::String("say \"hello\"".to_string().into())]
@@ -311,8 +302,7 @@ mod tests {
 
     #[test]
     fn test_escape_backslash() {
-        let mut tokenizer = Tokenizer::new(r#""path\\to\\file""#);
-        let tokens = tokenizer.tokenize().unwrap();
+        let tokens = Tokenizer::new(r#""path\\to\\file""#).collect::<Result<Vec<_>, _>>().unwrap();
         assert_eq!(
             tokens,
             vec![Token::String("path\\to\\file".to_string().into())]
@@ -321,22 +311,19 @@ mod tests {
 
     #[test]
     fn test_escape_forward_slash() {
-        let mut tokenizer = Tokenizer::new(r#""a\/b""#);
-        let tokens = tokenizer.tokenize().unwrap();
+        let tokens = Tokenizer::new(r#""a\/b""#).collect::<Result<Vec<_>, _>>().unwrap();
         assert_eq!(tokens, vec![Token::String("a/b".to_string().into())]);
     }
 
     #[test]
     fn test_escape_carriage_return() {
-        let mut tokenizer = Tokenizer::new(r#""line\r\n""#);
-        let tokens = tokenizer.tokenize().unwrap();
+        let tokens = Tokenizer::new(r#""line\r\n""#).collect::<Result<Vec<_>, _>>().unwrap();
         assert_eq!(tokens, vec![Token::String("line\r\n".to_string().into())]);
     }
 
     #[test]
     fn test_escape_backspace_formfeed() {
-        let mut tokenizer = Tokenizer::new(r#""\b\f""#);
-        let tokens = tokenizer.tokenize().unwrap();
+        let tokens = Tokenizer::new(r#""\b\f""#).collect::<Result<Vec<_>, _>>().unwrap();
         assert_eq!(
             tokens,
             vec![Token::String("\u{0008}\u{000C}".to_string().into())]
@@ -345,8 +332,7 @@ mod tests {
 
     #[test]
     fn test_multiple_escapes() {
-        let mut tokenizer = Tokenizer::new(r#""a\nb\tc\"""#);
-        let tokens = tokenizer.tokenize().unwrap();
+        let tokens = Tokenizer::new(r#""a\nb\tc\"""#).collect::<Result<Vec<_>, _>>().unwrap();
         assert_eq!(tokens, vec![Token::String("a\nb\tc\"".to_string().into())]);
     }
 
@@ -355,24 +341,21 @@ mod tests {
     #[test]
     fn test_unicode_escape_basic() {
         // \u0041 is 'A'
-        let mut tokenizer = Tokenizer::new(r#""\u0041""#);
-        let tokens = tokenizer.tokenize().unwrap();
+        let tokens = Tokenizer::new(r#""\u0041""#).collect::<Result<Vec<_>, _>>().unwrap();
         assert_eq!(tokens, vec![Token::String("A".to_string().into())]);
     }
 
     #[test]
     fn test_unicode_escape_multiple() {
         // \u0048\u0069 is "Hi"
-        let mut tokenizer = Tokenizer::new(r#""\u0048\u0069""#);
-        let tokens = tokenizer.tokenize().unwrap();
+        let tokens = Tokenizer::new(r#""\u0048\u0069""#).collect::<Result<Vec<_>, _>>().unwrap();
         assert_eq!(tokens, vec![Token::String("Hi".to_string().into())]);
     }
 
     #[test]
     fn test_unicode_escape_mixed() {
         // Mix of regular chars and unicode escapes
-        let mut tokenizer = Tokenizer::new(r#""Hello \u0057orld""#);
-        let tokens = tokenizer.tokenize().unwrap();
+        let tokens = Tokenizer::new(r#""Hello \u0057orld""#).collect::<Result<Vec<_>, _>>().unwrap();
         assert_eq!(
             tokens,
             vec![Token::String("Hello World".to_string().into())]
@@ -382,8 +365,7 @@ mod tests {
     #[test]
     fn test_unicode_escape_lowercase() {
         // Lowercase hex digits should work too
-        let mut tokenizer = Tokenizer::new(r#""\u004a""#);
-        let tokens = tokenizer.tokenize().unwrap();
+        let tokens = Tokenizer::new(r#""\u004a""#).collect::<Result<Vec<_>, _>>().unwrap();
         assert_eq!(tokens, vec![Token::String("J".to_string().into())]);
     }
 
@@ -391,29 +373,25 @@ mod tests {
 
     #[test]
     fn test_invalid_escape_sequence() {
-        let mut tokenizer = Tokenizer::new(r#""\q""#);
-        let result = tokenizer.tokenize();
+        let result = Tokenizer::new(r#""\q""#).collect::<Result<Vec<Token>, _>>();
         assert!(matches!(result, Err(JsonError::InvalidEscape { .. })));
     }
 
     #[test]
     fn test_invalid_unicode_too_short() {
-        let mut tokenizer = Tokenizer::new(r#""\u004""#);
-        let result = tokenizer.tokenize();
+        let result = Tokenizer::new(r#""\u004""#).collect::<Result<Vec<Token>, _>>();
         assert!(matches!(result, Err(JsonError::InvalidUnicode { .. })));
     }
 
     #[test]
     fn test_invalid_unicode_bad_hex() {
-        let mut tokenizer = Tokenizer::new(r#""\u00GG""#);
-        let result = tokenizer.tokenize();
+        let result = Tokenizer::new(r#""\u00GG""#).collect::<Result<Vec<Token>, _>>();
         assert!(matches!(result, Err(JsonError::InvalidUnicode { .. })));
     }
 
     #[test]
     fn test_unterminated_string_with_escape() {
-        let mut tokenizer = Tokenizer::new(r#""hello\n"#);
-        let result = tokenizer.tokenize();
+        let result = Tokenizer::new(r#""hello\n"#).collect::<Result<Vec<Token>, _>>();
         assert!(result.is_err());
     }
 }

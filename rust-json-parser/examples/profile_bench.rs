@@ -26,8 +26,8 @@ fn main() {
     let input = std::fs::read_to_string("python/rust_json_parser/bench_data/citm_catalog.json")
         .expect("Failed to read benchmark fixture");
     for _ in 0..ITERATIONS {
-        let _result = JsonParser::new()
-            .parse(&input)
+        let _result = JsonParser::new(&input)
+            .parse()
             .expect("Failed to parse JSON");
     }
 }

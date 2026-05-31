@@ -14,14 +14,12 @@ use rustc_hash::FxHashMap;
 /// ```rust
 /// use rust_json_parser::{JsonParser, JsonValue};
 ///
-/// let mut parser = JsonParser::new();
-///
 /// // Each JSON type maps to a JsonValue variant
-/// assert_eq!(parser.parse("null").unwrap(), JsonValue::Null);
-/// assert_eq!(parser.parse("true").unwrap(), JsonValue::Boolean(true));
-/// assert_eq!(parser.parse("42").unwrap(), JsonValue::Number(42.0));
-/// assert_eq!(parser.parse(r#""hello""#).unwrap(), JsonValue::String("hello".to_string().into()));
-/// assert_eq!(parser.parse("[1, 2]").unwrap(), JsonValue::Array(vec![JsonValue::Number(1.0), JsonValue::Number(2.0)]));
+/// assert_eq!(JsonParser::new("null").parse().unwrap(), JsonValue::Null);
+/// assert_eq!(JsonParser::new("true").parse().unwrap(), JsonValue::Boolean(true));
+/// assert_eq!(JsonParser::new("42").parse().unwrap(), JsonValue::Number(42.0));
+/// assert_eq!(JsonParser::new(r#""hello""#).parse().unwrap(), JsonValue::String("hello".to_string().into()));
+/// assert_eq!(JsonParser::new("[1, 2]").parse().unwrap(), JsonValue::Array(vec![JsonValue::Number(1.0), JsonValue::Number(2.0)]));
 /// ```
 #[derive(Debug, Clone, PartialEq)]
 pub enum JsonValue<'a> {
@@ -106,8 +104,7 @@ impl<'a> JsonValue<'a> {
     /// ```rust
     /// use rust_json_parser::{JsonParser, JsonValue};
     ///
-    /// let mut parser = JsonParser::new();
-    /// let value = parser.parse("[1, 2, 3]").unwrap();
+    /// let value = JsonParser::new("[1, 2, 3]").parse().unwrap();
     ///
     /// assert_eq!(value.as_array().unwrap().len(), 3);
     /// assert_eq!(JsonValue::Null.as_array(), None);
@@ -125,8 +122,7 @@ impl<'a> JsonValue<'a> {
     /// ```rust
     /// use rust_json_parser::{JsonParser, JsonValue};
     ///
-    /// let mut parser = JsonParser::new();
-    /// let value = parser.parse(r#"{"a": 1}"#).unwrap();
+    /// let value = JsonParser::new(r#"{"a": 1}"#).parse().unwrap();
     ///
     /// let obj = value.as_object().unwrap();
     /// assert!(obj.contains_key("a"));
@@ -145,8 +141,7 @@ impl<'a> JsonValue<'a> {
     /// ```rust
     /// use rust_json_parser::{JsonParser, JsonValue};
     ///
-    /// let mut parser = JsonParser::new();
-    /// let value = parser.parse(r#"{"name": "Alice"}"#).unwrap();
+    /// let value = JsonParser::new(r#"{"name": "Alice"}"#).parse().unwrap();
     ///
     /// assert_eq!(value.get("name"), Some(&JsonValue::String("Alice".to_string().into())));
     /// assert_eq!(value.get("missing"), None);
@@ -164,8 +159,7 @@ impl<'a> JsonValue<'a> {
     /// ```rust
     /// use rust_json_parser::{JsonParser, JsonValue};
     ///
-    /// let mut parser = JsonParser::new();
-    /// let value = parser.parse(r#"{"a": [1, 2]}"#).unwrap();
+    /// let value = JsonParser::new(r#"{"a": [1, 2]}"#).parse().unwrap();
     ///
     /// let output = value.pretty_print(2);
     /// assert!(output.contains('\n'));
@@ -369,7 +363,7 @@ mod tests {
 
         #[test]
         fn test_display_nested() {
-            let value = JsonParser::new().parse(r#"{"arr": [1, 2]}"#).unwrap();
+            let value = JsonParser::new(r#"{"arr": [1, 2]}"#).parse().unwrap();
             let output = value.to_string();
             // Object key order may vary, so check components
             assert!(output.contains("\"arr\""));

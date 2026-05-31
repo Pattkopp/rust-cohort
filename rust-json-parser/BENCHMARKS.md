@@ -250,3 +250,24 @@ Run 11. Clean re-run, no profiler attached.
 - canada.json: 9.42s (Run 11) → 7.58s.
 - verysmall.json: 0.000220s (Run 11) → 0.000302s (within noise at 7 bytes).
 - 78 unit tests pass under `--no-default-features`; release extension builds under maturin.
+
+## Run 13 — Single-pass streaming parser, intermediate `VecDeque` removed (2026-05-31)
+
+The parser pulls one token at a time from `Tokenizer`'s `Iterator` impl via `Peekable`,
+instead of building a full `VecDeque<Token>` up front. `Tokenizer::tokenize()` and its
+`VecDeque` are deleted. Single-use `JsonParser::new(input).parse()` API. Clean re-run, no
+profiler attached.
+
+| Fixture | Size | Rust | Python json (C) | simplejson | vs json (C) | vs simplejson |
+|---|---|---|---|---|---|---|
+| verysmall.json | 7 B | 0.000150s | 0.000477s | 0.000602s | 3.18x faster | 4.01x faster |
+| twitter.json | 568 KB | 0.841694s | 2.357356s | 1.912635s | 2.80x faster | 2.27x faster |
+| citm_catalog.json | 1.7 MB | 3.436259s | 5.008569s | 5.092383s | 1.46x faster | 1.48x faster |
+| canada.json | 2.3 MB | 5.519908s | 18.458667s | 20.390742s | 3.34x faster | 3.69x faster |
+
+### Observations
+
+- Removing the up-front token vector improved every fixture.
+- citm_catalog.json: 5.37s (Run 12) → 3.44s; now 1.46x faster than json(C) — its first time ahead.
+- twitter.json: 1.12s → 0.84s. canada.json: 7.58s → 5.52s.
+- 78 unit tests + 13 doctests pass under `--no-default-features`.

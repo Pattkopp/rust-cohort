@@ -17,8 +17,7 @@
 //! ```rust
 //! use rust_json_parser::{JsonParser, JsonValue};
 //!
-//! let mut parser = JsonParser::new();
-//! let value = parser.parse(r#"{"name": "Jochen", "age": 96}"#).unwrap();
+//! let value = JsonParser::new(r#"{"name": "Jochen", "age": 96}"#).parse().unwrap();
 //!
 //! assert_eq!(value.get("name"), Some(&JsonValue::String("Jochen".to_string().into())));
 //! assert_eq!(value.get("age"), Some(&JsonValue::Number(96.0)));
@@ -49,12 +48,11 @@ mod tests {
     #[test]
     fn test_integration() -> Result<()> {
         // Test the full parsing pipeline
-        let mut parser = JsonParser::new();
-        assert_eq!(parser.parse("42")?, JsonValue::Number(42.0));
-        assert_eq!(parser.parse("true")?, JsonValue::Boolean(true));
-        assert_eq!(parser.parse("null")?, JsonValue::Null);
+        assert_eq!(JsonParser::new("42").parse()?, JsonValue::Number(42.0));
+        assert_eq!(JsonParser::new("true").parse()?, JsonValue::Boolean(true));
+        assert_eq!(JsonParser::new("null").parse()?, JsonValue::Null);
         assert_eq!(
-            parser.parse(r#""hello""#)?,
+            JsonParser::new(r#""hello""#).parse()?,
             JsonValue::String("hello".to_string().into())
         );
         Ok(())
@@ -63,8 +61,7 @@ mod tests {
     #[test]
     fn test_error_propagation() {
         // Test that errors propagate properly with correct details
-        let mut parser = JsonParser::new();
-        let result = parser.parse("@invalid@");
+        let result = JsonParser::new("@invalid@").parse();
         assert!(result.is_err());
 
         // Validate error details through pattern matching
