@@ -203,7 +203,7 @@ impl<'a> JsonValue<'a> {
                             format!(
                                 "{}{}: {}",
                                 child_indent,
-                                JsonValue::String(Cow::Owned(key.to_string().into())),
+                                JsonValue::String(Cow::Owned(key.to_string())),
                                 val.pretty_print_recursive(indent, depth + 1)
                             )
                         })
@@ -260,7 +260,7 @@ impl fmt::Display for JsonValue<'_> {
                     write!(
                         f,
                         "{}:{}",
-                        JsonValue::String(Cow::Owned(key.to_string().into())),
+                        JsonValue::String(Cow::Owned(key.to_string())),
                         value
                     )?;
                 }
