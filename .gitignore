@@ -5,3 +5,6 @@ scraps/
 __pycache__/
 *.so
 *.pyd
+
+# Profiling artifacts
+profile.json.gz

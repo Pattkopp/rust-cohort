@@ -2,7 +2,7 @@ use rust_json_parser::JsonParser;
 
 fn main() {
     let input = r#"{"say \"hi\"": 42}"#;
-    let result = JsonParser::new().parse(input);
+    let result = JsonParser::new(input).parse();
     println!("Input JSON: {input}");
     println!("\nResult:");
     match result {

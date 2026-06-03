@@ -9,7 +9,12 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 pyo3 = { version = "0.28.3", features = ["extension-module"], optional = true }
+rustc-hash = "2.1.2"
 
 [features]
 default = ["python"]
 python = ["dep:pyo3"]
+
+[profile.profiling]
+inherits = "release"
+debug = true

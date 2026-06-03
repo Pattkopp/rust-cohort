@@ -1,26 +1,82 @@
 use std::fmt;
 
+/// Errors produced during JSON tokenization or parsing.
+///
+/// Every variant carries a `position` field locating where the error was
+/// detected. Its unit depends on which stage detected the error: errors raised
+/// during tokenization report a **byte offset** into the input, while structural
+/// errors raised by the parser report the **index of the offending token**.
+/// [`InvalidNumber`](Self::InvalidNumber), [`InvalidEscape`](Self::InvalidEscape),
+/// and [`InvalidUnicode`](Self::InvalidUnicode) always originate in the tokenizer
+/// and are therefore byte offsets; [`UnexpectedToken`](Self::UnexpectedToken) and
+/// [`UnexpectedEndOfInput`](Self::UnexpectedEndOfInput) may be either, depending
+/// on where they were detected.
+///
+/// `JsonError` implements [`std::fmt::Display`] and [`std::error::Error`],
+/// so it integrates with Rust's standard error-handling ecosystem.
+///
+/// # Examples
+///
+/// ```rust
+/// use rust_json_parser::{JsonParser, JsonError};
+///
+/// let err = JsonParser::new("@").parse().unwrap_err();
+///
+/// assert!(matches!(err, JsonError::UnexpectedToken { position: 0, .. }));
+/// println!("{err}"); // "unexpected token at position 0: expected valid JSON token, found @"
+/// ```
 #[derive(Debug, Clone, PartialEq)]
 pub enum JsonError {
+    /// The parser encountered a token it did not expect at this point in the grammar.
+    ///
+    /// For example, a number where a string key was required, or an invalid
+    /// character like `@` at the start of input.
     UnexpectedToken {
+        /// What the parser expected at this position.
         expected: String,
+        /// What was actually found.
         found: String,
+        /// Location of the error — byte offset or token index; see the
+        /// type-level note on `position`.
         position: usize,
     },
+    /// The input ended before the parser finished reading a value.
+    ///
+    /// Common causes: unclosed strings, arrays, or objects.
     UnexpectedEndOfInput {
+        /// What the parser was still expecting when input ran out.
         expected: String,
+        /// Location of the error — byte offset or token index; see the
+        /// type-level note on `position`.
         position: usize,
     },
+    /// A numeric literal could not be parsed as a valid `f64`.
+    ///
+    /// Triggered by malformed numbers like `12.34.56` or `--5`.
     InvalidNumber {
+        /// The raw text of the invalid number.
         value: String,
+        /// Byte offset where the number started.
         position: usize,
     },
+    /// An unrecognized escape sequence was found inside a string.
+    ///
+    /// JSON permits only `\"`, `\\`, `\/`, `\b`, `\f`, `\n`, `\r`, `\t`,
+    /// and `\uXXXX`. Anything else (e.g. `\q`) produces this error.
     InvalidEscape {
-        char: char,
+        /// The byte after the backslash.
+        char: u8,
+        /// Byte offset of the backslash.
         position: usize,
     },
+    /// A `\uXXXX` escape contained invalid or insufficient hex digits.
+    ///
+    /// Triggered when fewer than four hex digits follow `\u`, or when the
+    /// digits do not form a valid Unicode code point.
     InvalidUnicode {
+        /// The hex sequence that was found (may be fewer than 4 characters).
         sequence: String,
+        /// Byte offset of the backslash.
         position: usize,
     },
 }
@@ -53,7 +109,7 @@ impl fmt::Display for JsonError {
                 write!(
                     f,
                     "invalid escape character {} at position {}",
-                    char, position
+                    *char as char, position
                 )
             }
             JsonError::InvalidUnicode { sequence, position } => {
@@ -129,7 +185,7 @@ mod tests {
     #[test]
     fn test_invalid_escape_display() {
         let err = JsonError::InvalidEscape {
-            char: 'q',
+            char: b'q',
             position: 5,
         };
         let msg = format!("{}", err);
@@ -150,7 +206,7 @@ mod tests {
     #[test]
     fn test_error_is_std_error() {
         let err = JsonError::InvalidEscape {
-            char: 'x',
+            char: b'x',
             position: 0,
         };
         let _: &dyn std::error::Error = &err; // Must implement Error trait
