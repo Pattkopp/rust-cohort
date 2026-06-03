@@ -167,8 +167,7 @@ impl<'a> JsonParser<'a> {
     }
 
     fn expect_string_key(&mut self) -> Result<Cow<'a, str>> {
-        let token = self.next_token()?;
-        match token {
+        match self.next_token()? {
             Token::String(key) => Ok(key),
             t => Err(JsonError::UnexpectedToken {
                 expected: "string as key for an object".to_string(),
