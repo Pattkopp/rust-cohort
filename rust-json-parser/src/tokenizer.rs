@@ -235,7 +235,6 @@ impl<'a> Tokenizer<'a> {
             String::from_utf8(content).expect("escape decoding always produces valid UTF-8"),
         )))
     }
-
 }
 
 #[cfg(test)]
@@ -254,7 +253,9 @@ mod tests {
     #[test]
     fn test_tokenizer_multiple_tokens() {
         // Collecting the iterator yields every token in order.
-        let tokens = Tokenizer::new("123 456").collect::<Result<Vec<_>, _>>().unwrap();
+        let tokens = Tokenizer::new("123 456")
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
         assert_eq!(tokens.len(), 2);
     }
 
@@ -268,22 +269,41 @@ mod tests {
 
     #[test]
     fn test_tokenize_negative_number() {
-        let tokens = Tokenizer::new("-9.6").collect::<Result<Vec<_>, _>>().unwrap();
+        let tokens = Tokenizer::new("-9.6")
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
         assert_eq!(tokens, vec![Token::Number(-9.6)]);
     }
 
     #[test]
     fn test_tokenize_literals() {
-        assert_eq!(Tokenizer::new("true").collect::<Result<Vec<_>, _>>().unwrap(), vec![Token::Boolean(true)]);
+        assert_eq!(
+            Tokenizer::new("true")
+                .collect::<Result<Vec<_>, _>>()
+                .unwrap(),
+            vec![Token::Boolean(true)]
+        );
 
-        assert_eq!(Tokenizer::new("false").collect::<Result<Vec<_>, _>>().unwrap(), vec![Token::Boolean(false)]);
+        assert_eq!(
+            Tokenizer::new("false")
+                .collect::<Result<Vec<_>, _>>()
+                .unwrap(),
+            vec![Token::Boolean(false)]
+        );
 
-        assert_eq!(Tokenizer::new("null").collect::<Result<Vec<_>, _>>().unwrap(), vec![Token::Null]);
+        assert_eq!(
+            Tokenizer::new("null")
+                .collect::<Result<Vec<_>, _>>()
+                .unwrap(),
+            vec![Token::Null]
+        );
     }
 
     #[test]
     fn test_tokenize_simple_string() {
-        let tokens = Tokenizer::new(r#""hello""#).collect::<Result<Vec<_>, _>>().unwrap();
+        let tokens = Tokenizer::new(r#""hello""#)
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
         assert_eq!(tokens, vec![Token::String("hello".to_string().into())]);
     }
 
@@ -291,7 +311,9 @@ mod tests {
 
     #[test]
     fn test_escape_newline() {
-        let tokens = Tokenizer::new(r#""hello\nworld""#).collect::<Result<Vec<_>, _>>().unwrap();
+        let tokens = Tokenizer::new(r#""hello\nworld""#)
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
         assert_eq!(
             tokens,
             vec![Token::String("hello\nworld".to_string().into())]
@@ -300,13 +322,17 @@ mod tests {
 
     #[test]
     fn test_escape_tab() {
-        let tokens = Tokenizer::new(r#""col1\tcol2""#).collect::<Result<Vec<_>, _>>().unwrap();
+        let tokens = Tokenizer::new(r#""col1\tcol2""#)
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
         assert_eq!(tokens, vec![Token::String("col1\tcol2".to_string().into())]);
     }
 
     #[test]
     fn test_escape_quote() {
-        let tokens = Tokenizer::new(r#""say \"hello\"""#).collect::<Result<Vec<_>, _>>().unwrap();
+        let tokens = Tokenizer::new(r#""say \"hello\"""#)
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
         assert_eq!(
             tokens,
             vec![Token::String("say \"hello\"".to_string().into())]
@@ -315,7 +341,9 @@ mod tests {
 
     #[test]
     fn test_escape_backslash() {
-        let tokens = Tokenizer::new(r#""path\\to\\file""#).collect::<Result<Vec<_>, _>>().unwrap();
+        let tokens = Tokenizer::new(r#""path\\to\\file""#)
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
         assert_eq!(
             tokens,
             vec![Token::String("path\\to\\file".to_string().into())]
@@ -324,19 +352,25 @@ mod tests {
 
     #[test]
     fn test_escape_forward_slash() {
-        let tokens = Tokenizer::new(r#""a\/b""#).collect::<Result<Vec<_>, _>>().unwrap();
+        let tokens = Tokenizer::new(r#""a\/b""#)
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
         assert_eq!(tokens, vec![Token::String("a/b".to_string().into())]);
     }
 
     #[test]
     fn test_escape_carriage_return() {
-        let tokens = Tokenizer::new(r#""line\r\n""#).collect::<Result<Vec<_>, _>>().unwrap();
+        let tokens = Tokenizer::new(r#""line\r\n""#)
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
         assert_eq!(tokens, vec![Token::String("line\r\n".to_string().into())]);
     }
 
     #[test]
     fn test_escape_backspace_formfeed() {
-        let tokens = Tokenizer::new(r#""\b\f""#).collect::<Result<Vec<_>, _>>().unwrap();
+        let tokens = Tokenizer::new(r#""\b\f""#)
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
         assert_eq!(
             tokens,
             vec![Token::String("\u{0008}\u{000C}".to_string().into())]
@@ -345,7 +379,9 @@ mod tests {
 
     #[test]
     fn test_multiple_escapes() {
-        let tokens = Tokenizer::new(r#""a\nb\tc\"""#).collect::<Result<Vec<_>, _>>().unwrap();
+        let tokens = Tokenizer::new(r#""a\nb\tc\"""#)
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
         assert_eq!(tokens, vec![Token::String("a\nb\tc\"".to_string().into())]);
     }
 
@@ -354,21 +390,27 @@ mod tests {
     #[test]
     fn test_unicode_escape_basic() {
         // \u0041 is 'A'
-        let tokens = Tokenizer::new(r#""\u0041""#).collect::<Result<Vec<_>, _>>().unwrap();
+        let tokens = Tokenizer::new(r#""\u0041""#)
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
         assert_eq!(tokens, vec![Token::String("A".to_string().into())]);
     }
 
     #[test]
     fn test_unicode_escape_multiple() {
         // \u0048\u0069 is "Hi"
-        let tokens = Tokenizer::new(r#""\u0048\u0069""#).collect::<Result<Vec<_>, _>>().unwrap();
+        let tokens = Tokenizer::new(r#""\u0048\u0069""#)
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
         assert_eq!(tokens, vec![Token::String("Hi".to_string().into())]);
     }
 
     #[test]
     fn test_unicode_escape_mixed() {
         // Mix of regular chars and unicode escapes
-        let tokens = Tokenizer::new(r#""Hello \u0057orld""#).collect::<Result<Vec<_>, _>>().unwrap();
+        let tokens = Tokenizer::new(r#""Hello \u0057orld""#)
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
         assert_eq!(
             tokens,
             vec![Token::String("Hello World".to_string().into())]
@@ -378,7 +420,9 @@ mod tests {
     #[test]
     fn test_unicode_escape_lowercase() {
         // Lowercase hex digits should work too
-        let tokens = Tokenizer::new(r#""\u004a""#).collect::<Result<Vec<_>, _>>().unwrap();
+        let tokens = Tokenizer::new(r#""\u004a""#)
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
         assert_eq!(tokens, vec![Token::String("J".to_string().into())]);
     }
 
