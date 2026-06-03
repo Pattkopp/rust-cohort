@@ -160,18 +160,18 @@ impl<'a> Tokenizer<'a> {
                 )));
             }
         }
-        let mut content: Vec<u8> = Vec::with_capacity(64);
+        let mut content: String = String::with_capacity(64);
         loop {
             match self.advance() {
                 Some(b'"') => break,
                 Some(b'\\') => match self.advance() {
                     Some(ch) => match ch {
-                        b'"' | b'\\' | b'/' => content.push(ch),
-                        b'b' => content.push(b'\x08'),
-                        b'f' => content.push(b'\x0C'),
-                        b'n' => content.push(b'\n'),
-                        b'r' => content.push(b'\r'),
-                        b't' => content.push(b'\t'),
+                        b'"' | b'\\' | b'/' => content.push(ch as char),
+                        b'b' => content.push('\x08'),
+                        b'f' => content.push('\x0C'),
+                        b'n' => content.push('\n'),
+                        b'r' => content.push('\r'),
+                        b't' => content.push('\t'),
                         b'u' => match self.input.get(self.position..(self.position + 4)) {
                             Some(hex_chars) => {
                                 // turn hex_chars into String
@@ -194,8 +194,7 @@ impl<'a> Tokenizer<'a> {
                                     },
                                 )?;
                                 self.position += 4;
-                                let mut utf8_buf = [0u8; 4];
-                                content.extend_from_slice(ch.encode_utf8(&mut utf8_buf).as_bytes())
+                                content.push(ch)
                             }
                             None => {
                                 let remaining: String = self.input[self.position..]
@@ -222,7 +221,15 @@ impl<'a> Tokenizer<'a> {
                         });
                     }
                 },
-                Some(ch) => content.push(ch),
+                Some(_) => {
+                    let literal_start = self.position - 1;
+                    let literal_end = match self.input[literal_start..].find(['\\', '"']) {
+                        Some(special_offset) => literal_start + special_offset,
+                        None => self.input.len(),
+                    };
+                    content.push_str(&self.input[literal_start..literal_end]);
+                    self.position = literal_end;
+                }
                 None => {
                     return Err(JsonError::UnexpectedEndOfInput {
                         expected: "closing quote".to_string(),
@@ -231,9 +238,7 @@ impl<'a> Tokenizer<'a> {
                 }
             }
         }
-        Ok(Token::String(Cow::Owned(
-            String::from_utf8(content).expect("escape decoding always produces valid UTF-8"),
-        )))
+        Ok(Token::String(Cow::Owned(content)))
     }
 }
 

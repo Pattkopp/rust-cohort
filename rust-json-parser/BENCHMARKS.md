@@ -271,3 +271,27 @@ profiler attached.
 - citm_catalog.json: 5.37s (Run 12) → 3.44s; now 1.46x faster than json(C) — its first time ahead.
 - twitter.json: 1.12s → 0.84s. canada.json: 7.58s → 5.52s.
 - 78 unit tests + 13 doctests pass under `--no-default-features`.
+
+## Run 14 — `String` accumulator in `read_string` replaces `Vec<u8>` + `from_utf8` (2026-06-03)
+
+`read_string` builds its owned output as a `String` instead of a `Vec<u8>`. Simple escapes
+push their `char`, `\uXXXX` pushes the decoded `char` directly, and literal runs between
+escapes are copied as `&str` slices via `push_str`, located with `find` from the run start
+(always a char boundary, so multi-byte characters are never split). This removes the trailing
+`String::from_utf8` re-validation pass and the `.expect()` that could panic the host binary on
+a library call — the concern raised in review — without adding a `JsonError` variant or
+`unsafe`. The unescaped-string fast path still returns a borrowed `Cow`.
+
+| Fixture | Size | Rust | Python json (C) | simplejson | vs json (C) | vs simplejson |
+|---|---|---|---|---|---|---|
+| verysmall.json | 7 B | 0.000150s | 0.000447s | 0.000571s | 2.98x faster | 3.81x faster |
+| twitter.json | 568 KB | 0.789544s | 2.122746s | 1.692753s | 2.69x faster | 2.14x faster |
+| citm_catalog.json | 1.7 MB | 2.363858s | 4.548111s | 4.113396s | 1.92x faster | 1.74x faster |
+| canada.json | 2.3 MB | 4.647135s | 16.070792s | 17.866562s | 3.46x faster | 3.84x faster |
+
+### Observations
+
+- citm_catalog.json: 3.44s (Run 13) → 2.36s. canada.json: 5.52s → 4.65s. twitter.json: 0.84s → 0.79s.
+- The string-heavy fixtures gain most, consistent with dropping the `from_utf8` validation pass.
+- verysmall.json: 0.000150s → 0.000150s (unchanged; within noise at 7 bytes).
+- 78 unit tests + 14 doctests pass under `--no-default-features`; release extension builds under maturin.
