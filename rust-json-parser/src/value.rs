@@ -9,6 +9,11 @@ use rustc_hash::FxHashMap;
 /// Use [`crate::JsonParser`] to produce a `JsonValue` from a JSON string,
 /// then inspect or extract data using the accessor methods below.
 ///
+/// A `JsonValue` borrows from the input it was parsed from: string keys and
+/// values are stored as [`Cow<'a, str>`](std::borrow::Cow) and reference the
+/// source slice where possible, so a value cannot outlive the input string it
+/// was produced from.
+///
 /// # Examples
 ///
 /// ```rust
@@ -29,11 +34,15 @@ pub enum JsonValue<'a> {
     Boolean(bool),
     /// JSON number, stored as an `f64` per the JSON specification.
     Number(f64),
-    /// JSON string, with escape sequences already resolved.
+    /// JSON string, with escape sequences already resolved. Borrows from the
+    /// input when the string contains no escapes, otherwise owns the decoded text.
     String(Cow<'a, str>),
     /// JSON array — an ordered sequence of [`JsonValue`]s.
     Array(Vec<JsonValue<'a>>),
     /// JSON object — a map of string keys to [`JsonValue`]s.
+    ///
+    /// Backed by an [`FxHashMap`](rustc_hash::FxHashMap), so keys are **not**
+    /// stored in insertion order and iteration order is unspecified.
     Object(FxHashMap<Cow<'a, str>, JsonValue<'a>>),
 }
 
@@ -117,7 +126,8 @@ impl<'a> JsonValue<'a> {
         }
     }
 
-    /// If this is an `Object`, returns a reference to the underlying [`FxHashMap`]. Otherwise returns `None`.
+    /// If this is an `Object`, returns a reference to the underlying
+    /// [`FxHashMap`](rustc_hash::FxHashMap). Otherwise returns `None`.
     ///
     /// ```rust
     /// use rust_json_parser::{JsonParser, JsonValue};
@@ -155,6 +165,9 @@ impl<'a> JsonValue<'a> {
     }
 
     /// Returns a pretty-printed JSON string with the given indentation width.
+    ///
+    /// Object keys are emitted in unspecified order; see the note on
+    /// [`JsonValue::Object`].
     ///
     /// ```rust
     /// use rust_json_parser::{JsonParser, JsonValue};

@@ -2,9 +2,15 @@ use std::fmt;
 
 /// Errors produced during JSON tokenization or parsing.
 ///
-/// Every variant carries a `position` field indicating the byte offset in the
-/// input where the error was detected. This makes error messages actionable —
-/// the caller can point the user to the exact location of the problem.
+/// Every variant carries a `position` field locating where the error was
+/// detected. Its unit depends on which stage detected the error: errors raised
+/// during tokenization report a **byte offset** into the input, while structural
+/// errors raised by the parser report the **index of the offending token**.
+/// [`InvalidNumber`](Self::InvalidNumber), [`InvalidEscape`](Self::InvalidEscape),
+/// and [`InvalidUnicode`](Self::InvalidUnicode) always originate in the tokenizer
+/// and are therefore byte offsets; [`UnexpectedToken`](Self::UnexpectedToken) and
+/// [`UnexpectedEndOfInput`](Self::UnexpectedEndOfInput) may be either, depending
+/// on where they were detected.
 ///
 /// `JsonError` implements [`std::fmt::Display`] and [`std::error::Error`],
 /// so it integrates with Rust's standard error-handling ecosystem.
@@ -30,7 +36,8 @@ pub enum JsonError {
         expected: String,
         /// What was actually found.
         found: String,
-        /// Byte offset in the input.
+        /// Location of the error — byte offset or token index; see the
+        /// type-level note on `position`.
         position: usize,
     },
     /// The input ended before the parser finished reading a value.
@@ -39,7 +46,8 @@ pub enum JsonError {
     UnexpectedEndOfInput {
         /// What the parser was still expecting when input ran out.
         expected: String,
-        /// Byte offset where the unexpected end was detected.
+        /// Location of the error — byte offset or token index; see the
+        /// type-level note on `position`.
         position: usize,
     },
     /// A numeric literal could not be parsed as a valid `f64`.

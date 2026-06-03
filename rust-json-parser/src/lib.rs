@@ -6,11 +6,27 @@
 //!
 //! # Features
 //!
-//! - Full JSON spec support: objects, arrays, strings, numbers, booleans, and null
-//! - Unicode escape sequences (`\uXXXX`)
+//! - All six JSON types: objects, arrays, strings, numbers, booleans, and null
+//! - Zero-copy parsing: strings without escape sequences borrow directly from the
+//!   input rather than being copied, so a parsed [`JsonValue`] holds a
+//!   [`Cow`](std::borrow::Cow) and borrows from the source string
+//! - Unicode escape sequences (`\uXXXX`) within the Basic Multilingual Plane
 //! - Detailed error messages with position information
 //! - Pretty-printing with configurable indentation
 //! - Python bindings via PyO3 (optional `python` feature)
+//!
+//! # Limitations
+//!
+//! - Surrogate-pair escapes (two consecutive `\u` escapes encoding one
+//!   non-BMP character, as used for emoji) are not combined into a single code
+//!   point; each half is rejected as
+//!   [`InvalidUnicode`](JsonError::InvalidUnicode), so characters outside the
+//!   Basic Multilingual Plane cannot be expressed via `\u` escapes.
+//! - Only the first complete top-level value is validated. Any content after it
+//!   is silently ignored rather than reported as an error.
+//! - Object key order is not preserved. Objects are stored in an
+//!   [`FxHashMap`](rustc_hash::FxHashMap), so iteration and serialization order
+//!   are unspecified.
 //!
 //! # Quick Start
 //!
