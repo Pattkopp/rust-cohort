@@ -94,7 +94,7 @@ impl<'a> JsonParser<'a> {
         }
         loop {
             let key = self.expect_string_key()?;
-            self.expect_colon()?;
+            self.expect(Token::Colon, "colon as separator for an object")?;
             let value = self.parse_value()?;
             obj.insert(key, value);
             match self.next_token()? {
@@ -156,24 +156,23 @@ impl<'a> JsonParser<'a> {
         }
     }
 
+    fn expect(&mut self, expected: Token<'a>, description: &str) -> Result<()> {
+        let token = self.next_token()?;
+        (token == expected)
+            .then_some(())
+            .ok_or_else(|| JsonError::UnexpectedToken {
+                expected: description.to_string(),
+                found: format!("{:?}", token),
+                position: self.position,
+            })
+    }
+
     fn expect_string_key(&mut self) -> Result<Cow<'a, str>> {
         let token = self.next_token()?;
         match token {
             Token::String(key) => Ok(key),
             t => Err(JsonError::UnexpectedToken {
                 expected: "string as key for an object".to_string(),
-                found: format!("{:?}", t),
-                position: self.position,
-            }),
-        }
-    }
-
-    fn expect_colon(&mut self) -> Result<()> {
-        let token = self.next_token()?;
-        match token {
-            Token::Colon => Ok(()),
-            t => Err(JsonError::UnexpectedToken {
-                expected: "colon as separator for an object".to_string(),
                 found: format!("{:?}", t),
                 position: self.position,
             }),
@@ -259,13 +258,17 @@ mod tests {
 
     #[test]
     fn test_parse_string_with_unicode() {
-        let value = JsonParser::new(r#""\u0048\u0065\u006c\u006c\u006f""#).parse().unwrap();
+        let value = JsonParser::new(r#""\u0048\u0065\u006c\u006c\u006f""#)
+            .parse()
+            .unwrap();
         assert_eq!(value, JsonValue::String("Hello".to_string().into()));
     }
 
     #[test]
     fn test_parse_complex_escapes() {
-        let value = JsonParser::new(r#""line1\nline2\t\"quoted\"\u0021""#).parse().unwrap();
+        let value = JsonParser::new(r#""line1\nline2\t\"quoted\"\u0021""#)
+            .parse()
+            .unwrap();
         assert_eq!(
             value,
             JsonValue::String("line1\nline2\t\"quoted\"!".to_string().into())
@@ -314,7 +317,8 @@ mod tests {
 
         #[test]
         fn test_parse_array_mixed_types() {
-            let value = JsonParser::new(r#"[1, "two", true, null]"#).parse()
+            let value = JsonParser::new(r#"[1, "two", true, null]"#)
+                .parse()
                 .unwrap();
             let expected = JsonValue::Array(vec![
                 JsonValue::Number(1.0),
@@ -375,7 +379,8 @@ mod tests {
 
         #[test]
         fn test_parse_object_multiple_keys() {
-            let value = JsonParser::new(r#"{"name": "Alice", "age": 30}"#).parse()
+            let value = JsonParser::new(r#"{"name": "Alice", "age": 30}"#)
+                .parse()
                 .unwrap();
             if let JsonValue::Object(obj) = value {
                 assert_eq!(
@@ -390,7 +395,8 @@ mod tests {
 
         #[test]
         fn test_parse_nested_object() {
-            let value = JsonParser::new(r#"{"outer": {"inner": 1}}"#).parse()
+            let value = JsonParser::new(r#"{"outer": {"inner": 1}}"#)
+                .parse()
                 .unwrap();
             if let JsonValue::Object(outer) = value {
                 if let Some(JsonValue::Object(inner)) = outer.get("outer") {
@@ -436,7 +442,8 @@ mod tests {
 
         #[test]
         fn test_object_get() {
-            let value = JsonParser::new(r#"{"name": "Alice", "age": 30}"#).parse()
+            let value = JsonParser::new(r#"{"name": "Alice", "age": 30}"#)
+                .parse()
                 .unwrap();
             assert_eq!(
                 value.get("name"),
