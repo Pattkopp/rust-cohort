@@ -140,8 +140,7 @@ impl<'a> JsonParser<'a> {
     }
 
     fn parse_value(&mut self) -> Result<JsonValue<'a>> {
-        let token = self.next_token()?;
-        match token {
+        match self.next_token()? {
             Token::Null => Ok(JsonValue::Null),
             Token::Boolean(b) => Ok(JsonValue::Boolean(b)),
             Token::Number(f) => Ok(JsonValue::Number(f)),
