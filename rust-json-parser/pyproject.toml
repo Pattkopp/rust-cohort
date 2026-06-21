@@ -5,7 +5,7 @@ build-backend = "maturin"
 [project]
 name = "rust-json-parser"
 version = "0.1.0"
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 dependencies = [
     "simplejson>=4.1.1",
 ]
@@ -17,5 +17,5 @@ features = ["pyo3/extension-module"]
 
 [dependency-groups]
 dev = [
-    "pytest>=9.0.3",
+    "pytest>=9.1.1",
 ]
