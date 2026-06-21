@@ -1,0 +1,61 @@
+# list available recipes (runs when `just` is invoked with no arguments)
+default:
+    @just --list
+
+# --- Rust ---
+
+# format all source files
+fmt:
+    cargo fmt
+
+# lint with clippy, treating all warnings as errors
+lint:
+    cargo clippy --all-targets --no-default-features -- -D warnings
+
+# type-check without producing a runnable artifact
+check:
+    cargo check --no-default-features
+
+# run the full Rust test suite (unit tests via nextest, then doctests)
+test:
+    cargo nextest run --no-default-features
+    cargo test --no-default-features --doc
+
+# run the full local check: format, then lint, then test, in that order
+verify:
+    just fmt
+    just lint
+    just test
+
+# run the Rust CLI demo (src/main.rs)
+run:
+    cargo run --no-default-features
+
+# --- Python extension (PyO3 / maturin) ---
+
+# build and install the Python extension into the venv (debug)
+build:
+    uv run maturin develop
+
+# build and install the Python extension into the venv (release; required before benchmarking)
+build-release:
+    uv run maturin develop --release
+
+# run the Python integration tests (rebuilds the extension first)
+pytest: build
+    uv run pytest
+
+# parse a JSON string or file path and pretty-print it
+parse json:
+    uv run python -m rust_json_parser '{{json}}'
+
+# benchmark against Python json and simplejson (release build first)
+bench: build-release
+    uv run python -m rust_json_parser --benchmark
+
+# --- Profiling ---
+
+# build the profiling example and record a CPU profile with samply
+profile:
+    cargo build --example profile_bench --no-default-features --profile profiling
+    samply record target/profiling/examples/profile_bench
